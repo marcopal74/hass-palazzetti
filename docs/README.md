@@ -1,5 +1,8 @@
 # Custom component Palazzetti for Home assistant 
 A Home Assistant component for manage your Palazzetti stove
+
+*** TO BE UPDATED: see commit comment ***
+
 Note :
 - the status and counters of stove is updated directly when home assistant start
 - since 23 decembre 2020 counters is updated each 10 minutes and stove status like temperature each 30 secondes or when something is updated through calling "set_parms" service

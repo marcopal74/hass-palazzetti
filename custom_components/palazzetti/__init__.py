@@ -18,8 +18,9 @@ _LOGGER = logging.getLogger(__name__)
 
 # The domain of your component. Should be equal to the name of your component.
 DOMAIN = "palazzetti"
-INTERVAL = timedelta(seconds=30)
+INTERVAL = timedelta(seconds=30) # Interval for check dynamic data
 INTERVAL_CNTR = timedelta(seconds=300) # Interval for check counters
+INTERVAL_STDT = timedelta(days=7) # Interval for check static data
 
 
 CONFIG_SCHEMA = voluptuous.Schema({
@@ -31,11 +32,21 @@ CONFIG_SCHEMA = voluptuous.Schema({
 
 async def async_setup(hass, config):
     _LOGGER.debug("Init of palazzetti component")
-
+    
+    #to store data for sensor platform
+    hass.data[DOMAIN] = {
+      't1': 0,
+      't2': 0,
+      't5': 0,
+      'setp': 0,
+      'plevel': 0,
+      'pellet': 0
+    }
+    
     api = Palazzetti(hass, config)
+    await api.async_get_stdt()
     await api.async_get_alls()
     await api.async_get_cntr()
-
 
     # loop for get state of stove
     def update_state_datas(event_time):
@@ -45,9 +56,17 @@ async def async_setup(hass, config):
     def update_cntr_datas(event_time):
         return asyncio.run_coroutine_threadsafe( api.async_get_cntr(), hass.loop)
 
+    # loop for get static data of stove
+    def update_static_datas(event_time):
+        return asyncio.run_coroutine_threadsafe( api.async_get_stdt(), hass.loop)
+
     async_track_time_interval(hass, update_state_datas, INTERVAL)
     async_track_time_interval(hass, update_cntr_datas, INTERVAL_CNTR)
+    async_track_time_interval(hass, update_static_datas, INTERVAL_STDT)
 
+    #sensor platform
+    hass.helpers.discovery.load_platform('sensor', DOMAIN, {}, config)
+    
     # services
     def set_parameters(call):
         """Handle the service call 'set'"""
@@ -118,6 +137,12 @@ class Palazzetti(object):
         # States are in the format DOMAIN.OBJECT_ID.
         #hass.states.async_set('palazzetti.ip', self.ip)
 
+    # make request GET STDT
+    async def async_get_stdt(self):
+        """Get counters"""
+        self.op = 'GET STDT'
+        await self.async_get_request()
+    
     # make request GET ALLS
     async def async_get_alls(self):
         """Get All data or almost ;)"""
@@ -249,12 +274,25 @@ class Palazzetti(object):
         return response
 
     def change_states(self):
+        #to be further developed according to GET STDT data
+
         """Change states following result of request"""
         if self.op == 'GET ALLS':
             self.hass.states.async_set('palazzetti.STATUS', self.code_status.get(self.response_json['STATUS'], self.response_json['STATUS']))
             self.hass.states.async_set('palazzetti.F2L', int(self.response_json['F2L']))
             self.hass.states.async_set('palazzetti.PWR', self.response_json['PWR'])
             self.hass.states.async_set('palazzetti.SETP', self.response_json['SETP'])
+            
+            # update for sensor platform 
+            # should force sensor platform update somehow but don't know how
+            self.hass.data[DOMAIN] = {
+              't1': self.response_json['T1'],
+              't2': self.response_json['T2'],
+              't5': self.response_json['T5'],
+              'setp': self.response_json['SETP'],
+              'plevel': self.response_json['PLEVEL'],
+              'pellet': self.response_json['PQT']
+            }
 
     def get_sept(self):
         """Get target temperature for climate"""
@@ -299,7 +337,7 @@ class Palazzetti(object):
         """Set power of fire"""
         if value is None :
             return
-		
+        
         op = 'SET POWR'
 
         # params for GET
@@ -307,7 +345,7 @@ class Palazzetti(object):
             ('cmd', op + ' ' + str(value)),
         )
 
-		# avoid multiple request
+        # avoid multiple request
         if op == self.last_op and str(params) == self.last_params :
             _LOGGER.debug('retry for op :' +op+' avoided')
             return
@@ -336,7 +374,7 @@ class Palazzetti(object):
             ('cmd', op + ' ' + str(value)),
         )
 
-       	# avoid multiple request
+        # avoid multiple request
         if op == self.last_op and str(params) == self.last_params :
             _LOGGER.debug('retry for op :' +op+' avoided')
             return           
