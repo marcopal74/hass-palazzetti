@@ -4,12 +4,14 @@ from homeassistant.helpers.entity import Entity
 
 from . import DOMAIN
 
+async def async_setup_entry(hass, config_entry, add_entities):
+    """Set up the sensor platform from config flow"""
+    #ipname=config_entry.replace(".","")
+    add_entities([SensorT1(),SensorT2(),SensorT5(),SensorSETP(),SensorPelletL(),SensorPelletQ()], update_before_add=True)
+    
 def setup_platform(hass, config, add_entities, discovery_info=None):
-    """Set up the sensor platform."""
-    # We only want this platform to be set up via discovery.
-    if discovery_info is None:
-        return
-    add_entities([SensorT1(),SensorT2(),SensorT5(),SensorSETP(),SensorPelletL(),SensorPelletQ()])
+    """Set up the sensor platform from configuration.yaml"""
+    add_entities([SensorT1(),SensorT2(),SensorT5(),SensorSETP(),SensorPelletL(),SensorPelletQ()], update_before_add=True)
 
 
 class SensorT1(Entity):

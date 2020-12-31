@@ -9,6 +9,8 @@ palazzetti:
 import logging, asyncio, json, requests, voluptuous, aiohttp
 from datetime import timedelta
 
+from homeassistant import config_entries, core
+
 from homeassistant.helpers.event import async_track_time_interval
 import homeassistant.helpers.config_validation as cv
 
@@ -29,9 +31,11 @@ CONFIG_SCHEMA = voluptuous.Schema({
     })
 }, extra=voluptuous.ALLOW_EXTRA)
 
-
-async def async_setup(hass, config):
+async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.ConfigEntry):
     _LOGGER.debug("Init of palazzetti component")
+    
+    #to be used to define unique id for instance
+    #IP = entry.data["host"].replace(".","")
     
     #to store data for sensor platform
     hass.data[DOMAIN] = {
@@ -43,7 +47,7 @@ async def async_setup(hass, config):
       'pellet': 0
     }
     
-    api = Palazzetti(hass, config)
+    api = Palazzetti(hass, entry.data["host"])
     await api.async_get_stdt()
     await api.async_get_alls()
     await api.async_get_cntr()
@@ -65,7 +69,9 @@ async def async_setup(hass, config):
     async_track_time_interval(hass, update_static_datas, INTERVAL_STDT)
 
     #sensor platform
-    hass.helpers.discovery.load_platform('sensor', DOMAIN, {}, config)
+    hass.async_add_job(hass.config_entries.async_forward_entry_setup(
+            entry, 'sensor'))
+    #hass.helpers.discovery.load_platform('sensor', DOMAIN, {}, entry)
     
     # services
     def set_parameters(call):
@@ -77,6 +83,9 @@ async def async_setup(hass, config):
     # Return boolean to indicate that initialization was successfully.
     return True
 
+async def async_setup(hass, config):
+    """Set up the GitHub Custom component from yaml configuration."""
+    return True
 
 # class based on NINA 6kw
 # contact me if you have a other model of stove
@@ -93,7 +102,8 @@ class Palazzetti(object):
     def __init__(self, hass, config):
 
         self.hass       = hass
-        self.ip         = config[DOMAIN].get('ip', None)
+        self.ip         = config
+        #self.ipname     = config.replace(".","")
         self.queryStr   = 'http://'+self.ip+'/cgi-bin/sendmsg.lua'
 
         _LOGGER.debug('Init of class palazzetti')
