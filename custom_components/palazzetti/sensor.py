@@ -2,12 +2,12 @@
 from homeassistant.const import (TEMP_CELSIUS, ATTR_UNIT_OF_MEASUREMENT, ATTR_FRIENDLY_NAME)
 from homeassistant.helpers.entity import Entity
 
-from . import DOMAIN
+from .const import (DOMAIN,DATA_PALAZZETTI)
 
 async def async_setup_entry(hass, config_entry, add_entities):
     """Set up the sensor platform from config flow"""
     #ipname=config_entry.replace(".","")
-    add_entities([SensorT1(),SensorT2(),SensorT5(),SensorSETP(),SensorPelletL(),SensorPelletQ()], update_before_add=True)
+    setup_platform(hass,config_entry,add_entities)
     
 def setup_platform(hass, config, add_entities, discovery_info=None):
     """Set up the sensor platform from configuration.yaml"""
@@ -46,7 +46,8 @@ class SensorT1(Entity):
 
         This is the only method that should fetch new data for Home Assistant.
         """
-        self._state = self.hass.data[DOMAIN]['t1']
+        #self._state = self.hass.data[DOMAIN]['t1']
+        self._state = self.hass.data[DATA_PALAZZETTI].get_key('T1')
 
 class SensorT2(Entity):
     """Representation of a sensor."""
@@ -80,7 +81,7 @@ class SensorT2(Entity):
 
         This is the only method that should fetch new data for Home Assistant.
         """
-        self._state = self.hass.data[DOMAIN]['t2']
+        self._state = self.hass.data[DATA_PALAZZETTI].get_key('T2')
 
 class SensorT5(Entity):
     """Representation of a sensor."""
@@ -114,7 +115,8 @@ class SensorT5(Entity):
 
         This is the only method that should fetch new data for Home Assistant.
         """
-        self._state = self.hass.data[DOMAIN]['t5']
+        #self._state = self.hass.data[DOMAIN]['t5']
+        self._state = self.hass.data[DATA_PALAZZETTI].get_key('T5')
 
 class SensorSETP(Entity):
     """Representation of a sensor."""
@@ -148,7 +150,8 @@ class SensorSETP(Entity):
 
         This is the only method that should fetch new data for Home Assistant.
         """
-        self._state = self.hass.data[DOMAIN]['setp']
+        #self._state = self.hass.data[DOMAIN]['setp']
+        self._state = self.hass.data[DATA_PALAZZETTI].get_key('SETP')
 
 class SensorPelletQ(Entity):
     """Representation of a sensor."""
@@ -175,7 +178,7 @@ class SensorPelletQ(Entity):
     @property
     def unique_id(self):
         """Return the name of the sensor."""
-        return DOMAIN + '_PQTY'
+        return DOMAIN + '_PQT'
 
     @property
     def state(self):
@@ -192,7 +195,8 @@ class SensorPelletQ(Entity):
 
         This is the only method that should fetch new data for Home Assistant.
         """
-        self._state = self.hass.data[DOMAIN]['pellet']
+        #self._state = self.hass.data[DOMAIN]['pellet']
+        self._state = self.hass.data[DATA_PALAZZETTI].get_key('PQT')
 
 class SensorPelletL(Entity):
     """Representation of a sensor."""
@@ -236,4 +240,5 @@ class SensorPelletL(Entity):
 
         This is the only method that should fetch new data for Home Assistant.
         """
-        self._state = self.hass.data[DOMAIN]['plevel']
+        #self._state = self.hass.data[DOMAIN]['plevel']
+        self._state = self.hass.data[DATA_PALAZZETTI].get_key('PLEVEL')
