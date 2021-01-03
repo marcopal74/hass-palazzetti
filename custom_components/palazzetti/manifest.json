@@ -2,8 +2,10 @@
   "domain": "palazzetti",
   "name": "Palazzetti Stove",
   "config_flow": true,
-  "documentation": "https://github.com/BoubourSe/hass-palazzetti",
+  "documentation": "https://github.com/marcopal74/hass-palazzetti",
   "dependencies": [],
-  "codeowners": ["@BoubourSe", "@marcopal74"],
+  "codeowners": [
+      "@marcopal74"
+  ],
   "requirements": []  
 }

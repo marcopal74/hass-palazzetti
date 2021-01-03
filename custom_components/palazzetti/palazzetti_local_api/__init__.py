@@ -4,7 +4,7 @@ import asyncio
 import requests
 import aiohttp
 
-from homeassistant import core
+from homeassistant import core, exceptions
 
 from ..const import (DOMAIN,DATA_PALAZZETTI,INTERVAL,INTERVAL_CNTR,INTERVAL_STDT)
 
@@ -24,10 +24,12 @@ class Palazzetti(object):
 
     """docstring for Palazzetti"""
     #def __init__(self, config):
-    def __init__(self, hass, config):
+    def __init__(self, hass, config,title):
 
         self.hass       = hass
-        self.ip         = config
+        self.ip         = config.data["host"]
+        self.id         = title
+        #'palazzetti_' + self.ip.replace(".","")
         self.queryStr   = 'http://'+self.ip+'/cgi-bin/sendmsg.lua'
 
         _LOGGER.debug('Init of class palazzetti')
@@ -69,7 +71,7 @@ class Palazzetti(object):
 
 
         # States are in the format DOMAIN.OBJECT_ID.
-        #hass.states.async_set('palazzetti.ip', self.ip)
+        #hass.states.async_set(self.id+'.ip', self.ip)
 
     # make request GET STDT
     async def async_get_stdt(self):
@@ -89,8 +91,14 @@ class Palazzetti(object):
         self.op = 'GET CNTR'
         await self.async_get_request()
 
+    # make request to check ip
+    async def async_test(self):
+        """Get counters"""
+        self.op = 'GET LABL'
+        await self.async_get_request(False)
+
     # send a get request for get datas
-    async def async_get_request(self):
+    async def async_get_request(self,refresh_data=True):
         """ request the stove """
         # params for GET
         params = (
@@ -108,8 +116,9 @@ class Palazzetti(object):
                 async with session.get(self.queryStr, params=params) as response:                    
                     if response.status != 200 : 
                         _LOGGER.error("Error during api request : http status returned is {}".format(response.status))
-                        #print('palazzetti.stove - offline')
-                        self.hass.states.async_set('palazzetti.stove', 'offline',{'icon':'mdi:link-off'})
+                        #print(self.id+'.stove - offline')
+                        if refresh_data:
+                          self.hass.states.async_set(self.id+'.stove', 'offline',{'icon':'mdi:link-off'})
                         response = False
                     else:
                         # save response in json object
@@ -117,28 +126,32 @@ class Palazzetti(object):
 
         except aiohttp.ClientError as client_error:
             _LOGGER.error("Error during api request: {emsg}".format(emsg=client_error))
-            #print('palazzetti.stove - offline')
-            self.hass.states.async_set('palazzetti.stove', 'offline',{'icon':'mdi:link-off'})
+            #print(self.id+'.stove - offline')
+            if refresh_data:
+              self.hass.states.async_set(self.id+'.stove', 'offline',{'icon':'mdi:link-off'})
             response = False
         except json.decoder.JSONDecodeError as err:
             _LOGGER.error("Error during json parsing: response unexpected from Cbox")
-            #print('palazzetti.stove - offline')
-            self.hass.states.async_set('palazzetti.stove', 'offline',{'icon':'mdi:link-off'})
+            #print(self.id+'.stove - offline')
+            if refresh_data:
+              self.hass.states.async_set(self.id+'.stove', 'offline',{'icon':'mdi:link-off'})
             response = False
         
         if response == False:
             _LOGGER.debug('get_request() response false for op ' + self.op)
+            raise CannotConnect()
             return False
 
         
 
         #If no response return
         if response_json['SUCCESS'] != True :
-            #print('palazzetti.stove - com error')
+            #print(self.id+'.stove - com error')
             response_attrib = self.response_json.copy()
             response_attrib.update({"icon":"mdi:link-off"})
-            self.hass.states.async_set('palazzetti.stove', 'com error', response_attrib)
-            #self.hass.states.async_set('palazzetti.stove', 'com error', self.response_json)
+            if refresh_data:
+              self.hass.states.async_set(self.id+'.stove', 'com error', response_attrib)
+            #self.hass.states.async_set(self.id+'.stove', 'com error', self.response_json)
             _LOGGER.error('Error returned by CBox')
             return False
 
@@ -150,11 +163,17 @@ class Palazzetti(object):
         else:
             self.response_json = response_json['DATA']
 
-        #print('palazzetti.stove - online')
+        #print(self.id+'.stove - online')
         response_attrib = self.response_json.copy()
         response_attrib.update({"icon":"mdi:link"})
-        self.hass.states.async_set('palazzetti.stove', 'online', response_attrib)
-        self.change_states()
+        response_attrib.update({"unique_id":self.ip})
+        if refresh_data:
+          self.hass.states.async_set(self.id+'.stove', 'online', response_attrib)
+        if refresh_data:
+          self.change_states()
+        else:
+          print(self.response_json['LABEL'])
+          return self.response_json['LABEL']
 
     # send request to stove
     def request_stove(self, op, params):
@@ -178,14 +197,14 @@ class Palazzetti(object):
                 # timeout ( can happend when wifi is used )
                 _LOGGER.error('Timeout reach for request : ' + self.queryStr)
                 _LOGGER.info('Please check if you can ping : ' + self.ip)
-                #print('palazzetti.stove - offline')
-                self.hass.states.set('palazzetti.stove', 'offline')
+                #print(self.id+'.stove - offline')
+                self.hass.states.set(self.id+'.stove', 'offline')
                 return False
             except requests.exceptions.ConnectTimeout:
                 # equivalent of ping
                 _LOGGER.error('Please check parm ip : ' + self.ip)
-                #print('palazzetti.stove - offline')
-                self.hass.states.set('palazzetti.stove', 'offline',{'icon':'mdi:link-off'})
+                #print(self.id+'.stove - offline')
+                self.hass.states.set(self.id+'.stove', 'offline',{'icon':'mdi:link-off'})
                 return False
 
             if response == False:
@@ -197,10 +216,10 @@ class Palazzetti(object):
 
             # cbox return error
             if not success:
-                #print('palazzetti.stove - com error')
+                #print(self.id+'.stove - com error')
                 response_attrib = self.response_json.copy()
                 response_attrib.update({"icon":"mdi:link-off"})
-                self.hass.states.async_set('palazzetti.stove', 'com error', response_attrib)
+                self.hass.states.async_set(self.id+'.stove', 'com error', response_attrib)
                 _LOGGER.error('Error returned by CBox - retry in 2 seconds (' +op+')')
                 time.sleep(2)
                 retry = retry + 1
@@ -219,13 +238,15 @@ class Palazzetti(object):
         else:
             self.response_json = response_json['DATA']
 
-        #print('palazzetti.stove - online')
+        #print(self.id+'.stove - online')
         response_attrib = self.response_json.copy()
         response_attrib.update({"icon":"mdi:link"})
-        self.hass.states.async_set('palazzetti.stove', 'online', response_attrib)
+        response_attrib.update({"unique_id":self.ip})
+        self.hass.states.async_set(self.id+'.stove', 'online', response_attrib)
 
         return response
 
+    #updates all attributes and entities
     def change_states(self):
         #to be further developed according to GET STDT data
 
@@ -235,22 +256,10 @@ class Palazzetti(object):
             if self.response_json['STATUS'] == '6':
                 status_icon='mdi:fireplace'
    
-            self.hass.states.async_set('palazzetti.STATUS', self.code_status.get(self.response_json['STATUS'], self.response_json['STATUS']),{'icon':'mdi:fireplace'})
-            self.hass.states.async_set('palazzetti.F2L', int(self.response_json['F2L']),{'icon':'mdi:fan'})
-            self.hass.states.async_set('palazzetti.PWR', self.response_json['PWR'],{'icon':'mdi:fire'})
-            self.hass.states.async_set('palazzetti.SETP', self.response_json['SETP'],{'friendly_name': 'Setpoint','unit_of_measurement': '°C','icon': 'hass:thermometer'})
-            
-            # update for sensor platform 
-            # should force sensor platform update somehow but don't know how
-            self.hass.data[DOMAIN] = {
-              't1': self.response_json['T1'],
-              't2': self.response_json['T2'],
-              't5': self.response_json['T5'],
-              'setp': self.response_json['SETP'],
-              'plevel': self.response_json['PLEVEL'],
-              'pellet': self.response_json['PQT']
-            }
-            #print(f'assign GET ALLS - ' + self.code_status.get(self.response_json['STATUS'], self.response_json['STATUS']))
+            self.hass.states.async_set(self.id+'.STATUS', self.code_status.get(self.response_json['STATUS'], self.response_json['STATUS']),{'icon':status_icon})
+            self.hass.states.async_set(self.id+'.F2L', int(self.response_json['F2L']),{'icon':'mdi:fan'})
+            self.hass.states.async_set(self.id+'.PWR', self.response_json['PWR'],{'icon':'mdi:fire'})
+            self.hass.states.async_set(self.id+'.SETP', self.response_json['SETP'],{'friendly_name': 'Setpoint','unit_of_measurement': '°C','icon': 'hass:thermometer'})
 
     def get_sept(self):
         """Get target temperature for climate"""
@@ -265,6 +274,11 @@ class Palazzetti(object):
             return
 
         return self.response_json[mykey]
+
+    def get_unique(self):
+        """Get unique name of class"""
+
+        return self.id
 
     def set_parameters(self, datas):
         """set parameters following service call"""
@@ -297,7 +311,7 @@ class Palazzetti(object):
 
         # change state
         #print('set palazzetti.SETP to: ' + self.response_json['SETP'])
-        self.hass.states.set('palazzetti.SETP', self.response_json['SETP'])
+        self.hass.states.set(self.id+'.SETP', self.response_json['SETP'])
 
     def set_powr(self, value):
         """Set power of fire"""
@@ -321,7 +335,7 @@ class Palazzetti(object):
             return
 
         # change state
-        self.hass.states.set('palazzetti.PWR', self.response_json['PWR'])
+        self.hass.states.set(self.id+'.PWR', self.response_json['PWR'])
 
     def set_rfan(self, value):
         """Set fan level"""
@@ -350,7 +364,7 @@ class Palazzetti(object):
             return
 
         # change state
-        self.hass.states.async_set('palazzetti.F2L', self.response_json['F2L'])
+        self.hass.states.async_set(self.id+'.F2L', self.response_json['F2L'])
 
     def set_status(self, value):
         """start or stop stove"""
@@ -373,7 +387,10 @@ class Palazzetti(object):
             return
 
         # change state
-        self.hass.states.async_set('palazzetti.STATUS', self.code_status.get(self.response_json['STATUS'], self.response_json['STATUS']))
+        self.hass.states.async_set(self.id+'.STATUS', self.code_status.get(self.response_json['STATUS'], self.response_json['STATUS']))
 
     def get_datas(self):
-        return self.response_json 
+        return self.response_json
+
+class CannotConnect(exceptions.HomeAssistantError):
+    """Error to indicate we cannot connect."""

@@ -1,12 +1,23 @@
 {
     "config": {
         "step": {
+            "link": {
+                "title": "Link Hub",
+                "description": "Press the button on the bridge to register Philips Hue with Home Assistant.\n\n![Location of button on bridge](/static/images/config_philips_hue.jpg)"
+            },
             "user": {
                 "data": {
                     "host": "IP of the Connection Box"
                 },
-                "title": "Palazzetti Stove"
+                "title": "Palazzetti Stove",
+                "description": "Insert CBOX IP address"
             }
+        },
+        "error": {
+            "cannot_connect": "The Connbox IP is not responding"
+        },
+        "abort": {
+            "cannot_connect": "IP not corresponding to a ConnectionBox"
         }
     }
 }

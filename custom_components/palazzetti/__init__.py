@@ -30,20 +30,10 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
     _LOGGER.debug("Init of palazzetti component")
     
     #to be used to define unique id for instance
-    #IP = entry.data["host"].replace(".","")
+    class_id = 'plz_'+entry.data["host"].replace(".","")
     
-    #to store data for sensor platform
-    hass.data[DOMAIN] = {
-      't1': 0,
-      't2': 0,
-      't5': 0,
-      'setp': 0,
-      'plevel': 0,
-      'pellet': 0
-    }
-    
-    api = Palazzetti(hass, entry.data["host"])
-    hass.data[DATA_PALAZZETTI] = api
+    api = Palazzetti(hass, entry,class_id)
+    hass.data[DATA_PALAZZETTI+class_id] = api
     await api.async_get_stdt()
     await api.async_get_alls()
     await api.async_get_cntr()
@@ -66,7 +56,7 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
 
     #sensor platform
     hass.async_add_job(
-        hass.config_entries.async_forward_entry_setup(entry, 'sensor')
+    	hass.config_entries.async_forward_entry_setup(entry, 'sensor')
     )
     
     # services
