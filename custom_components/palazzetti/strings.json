@@ -1,0 +1,12 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "data": {
+                    "host": "IP of the Connection Box"
+                },
+                "title": "Palazzetti Stove"
+            }
+        }
+    }
+}

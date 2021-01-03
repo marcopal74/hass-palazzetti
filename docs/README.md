@@ -1,11 +1,15 @@
+
 # Custom component Palazzetti for Home assistant 
-A Home Assistant component for manage your Palazzetti stove
+First of all I must thank [Vost3](https://github.com/Vost3) from where everithing is started.
+He wrote the core of the communication of the Palazzetti Class - thank you!
 
-*** TO BE UPDATED: see commit comment ***
+This is a custom component for Home Assistant that provides informations about your Palazzetti connected product and lets you interact with it via services.
 
-Note :
-- the status and counters of stove is updated directly when home assistant start
-- since 23 decembre 2020 counters is updated each 10 minutes and stove status like temperature each 30 secondes or when something is updated through calling "set_parms" service
+The informations about your product are stored as attributes of the `palazzetti.stove` entity
+
+**Note:**
+- the static data, counters and dynamic data of the product are updated directly when home assistant start
+- the update frequency is once every 7 days for static data (characteristics of the product and the Connection Box), 10 minutes for counters (working time, ignitions, total pellet consumption) and 30 seconds for dynamic data (temperatures, status and other live data). Single dynamic data is updated also when `palazzetti.set_param` service is called.
 
 ## Installation
 Create directory `custom_components` in your home assistant configs directory is not exist
@@ -18,6 +22,7 @@ It should look similar to this after installation:
 |   |-- palazzetti/
 |       |-- __init__.py
 |       |-- manifest.json
+|       |-- sensor.py
 ```
 
 ## Configuration
@@ -181,11 +186,11 @@ You can set some parameters through the service `palazzetti.set_parms`
 ## Data Parameters
 Here all parameters that can be changed
 
-| name       | type      | possible values             | description 			 |
+| name       | type      | possible values             | description       |
 |:-----------|:----------|:----------------------------|:------------------------|
-| `SETP`     | int       |                             | temperature target 	 |
-| `PWR`      | int       |  1 to 5                     | fire power 			 |
-| `RFAN`     | int & str |  off / 1 to 5 / auto / high | level of room fan 		 |
+| `SETP`     | int       |                             | temperature target    |
+| `PWR`      | int       |  1 to 5                     | fire power        |
+| `RFAN`     | int & str |  off / 1 to 5 / auto / high | level of room fan     |
 | `STATUS`   | str       |  on / off                   | start or stop the stove |
 
 ## Other
@@ -209,7 +214,5 @@ logger:
 
 ### Tested on release
 ```
-  0.100.3
-  0.108.0
   2020.12.1
 ```

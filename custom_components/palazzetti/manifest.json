@@ -4,8 +4,6 @@
   "config_flow": true,
   "documentation": "https://github.com/BoubourSe/hass-palazzetti",
   "dependencies": [],
-  "codeowners": [
-      "@BoubourSe"
-  ],
+  "codeowners": ["@BoubourSe", "@marcopal74"],
   "requirements": []  
 }
