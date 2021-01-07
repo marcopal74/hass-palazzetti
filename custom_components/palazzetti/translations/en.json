@@ -17,7 +17,8 @@
             "cannot_connect": "The Connbox IP is not responding"
         },
         "abort": {
-            "cannot_connect": "IP not corresponding to a ConnectionBox"
+            "cannot_connect": "IP not corresponding to a ConnectionBox",
+            "host_exists": "ConnBox already configured"
         }
     }
 }

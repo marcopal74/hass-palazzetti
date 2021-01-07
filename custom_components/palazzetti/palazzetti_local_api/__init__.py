@@ -3,107 +3,238 @@ import logging
 import asyncio
 import requests
 import aiohttp
+import socket
+import re
 
-from homeassistant import core, exceptions
-
-from ..const import (DOMAIN,DATA_PALAZZETTI,INTERVAL,INTERVAL_CNTR,INTERVAL_STDT)
+from ..const import DOMAIN, DATA_PALAZZETTI, INTERVAL, INTERVAL_CNTR, INTERVAL_STDT
 
 _LOGGER = logging.getLogger(__name__)
 
+UDP_PORT = 54549
+DISCOVERY_TIMEOUT = 5
+DISCOVERY_MESSAGE = b"plzbridge?"
+BUFFER_SIZE = 1024
+HTTP_TIMEOUT = 15
 
-# class based on NINA 6kw
-# contact me if you have a other model of stove
+
+class PalDiscovery(object):
+    async def discovery(self):
+        """discovers all ConnBoxes responding to broadcast"""
+
+        server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+
+        # Enable broadcasting mode
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        server.settimeout(DISCOVERY_TIMEOUT)
+        myips = []
+        server.sendto(DISCOVERY_MESSAGE, ("<broadcast>", UDP_PORT))
+        while True:
+            # Receive the client packet along with the address it is coming from
+            try:
+                data, addr = server.recvfrom(BUFFER_SIZE)
+                # print(data)
+                if data != "":
+                    mydata = data.decode("utf-8")
+                    mydata_json = json.loads(mydata)
+                    if mydata_json["SUCCESS"] == True:
+                        myips.append(addr[0])
+                        print(addr[0])
+
+            except socket.timeout:
+                # print("retry")
+                myips = list(dict.fromkeys(myips))
+                return myips
+
+    async def checkIP_UDP(self, testIP):
+        """verify the IP is a Connection Box using UDP"""
+
+        server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+
+        # Enable broadcasting mode
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        server.settimeout(DISCOVERY_TIMEOUT)
+        server.sendto(DISCOVERY_MESSAGE, (testIP, UDP_PORT))
+
+        while True:
+            # Receive the client packet along with the address it is coming from
+            try:
+                data, addr = server.recvfrom(BUFFER_SIZE)
+                # print(data.decode('utf-8'))
+                if data != "":
+                    mydata = data.decode("utf-8")
+                    mydata_json = json.loads(mydata)
+                    if mydata_json["SUCCESS"] == True:
+                        return True
+
+            except socket.timeout:
+                return False
+
+    async def checkIP_HTTP(self, testIP):
+        """verify the IP is a Connection Box using HTTP call with command GET LABL"""
+        try:
+            test_api = Palazzetti(testIP)
+            myresult = await test_api.async_test()
+            # print(myresult)
+            if not myresult:
+                return False
+            else:
+                return True
+        except:
+            # del a
+            # del test_api
+            return False
+
+    async def checkIP(self, testIP):
+        is_IP_OK = await self.checkIP_UDP(testIP)
+        print(f"From checkIP_UDP {is_IP_OK}")
+
+        if not is_IP_OK:
+            print("No ConnBox found via UDP, checking via HTTP...")
+            is_IP_OK = await self.checkIP_HTTP(testIP)
+            print(f"From checkIP_HTTP {is_IP_OK}")
+            if not is_IP_OK:
+                print("No ConnBox found")
+                return False
+
+        return True
+
+
 class Palazzetti(object):
 
     pinged = False
     op = None
     response_json = None
 
+    data = None
+    data_config_json = None
+    # to be removed in the future
+    data_config_string = """{
+        "flag_modalita_ecostart": true,
+        "flag_sincronizzazione_orario": false,
+        "flag_presenza_chrono": false,
+        "flag_impostazione_setpoint": true,
+        "flag_accensione_macchina": false,
+        "flag_presenza_errore_macchina": false,
+        "flag_prenotazione_accensione_pellet": false,
+        "flag_tipologia_aria": false,
+        "flag_tipologia_idro": true,
+        "flag_presenza_ventilatore": false,
+        "flag_presenza_zero_speed_fan": false,
+        "flag_presenza_ventilatore_mod_auto": false,
+        "flag_presenza_ventilatore_mod_high": false,
+        "flag_presenza_ventilatore_mod_prop": false,
+        "flag_presenza_primo_ventilatore": false,
+        "flag_presenza_secondo_ventilatore": false,
+        "flag_presenza_terzo_ventilatore": false,
+        "flag_presenza_temperatura_combustione": false,
+        "flag_presenza_porta": false,
+        "flag_presenza_luci": false,
+        "value_tipologia_macchina": 2,
+        "value_accensione_macchina": true,
+        "value_descrizione_temperatura_aria": "kTemperaturaAmbiente",
+        "value_descrizione_temperatura_idro": "kTemperaturaAccumulo",
+        "value_descrizione_sonda_t1_idro": "kTemperaturaAcquaMandata",
+        "value_temperatura_sonda_principale": "",
+        "value_descrizione_sonda_principale": "T5",
+        "value_setpoint_minimo": 40,
+        "value_setpoint_massimo": 75
+    }"""
+    data_config_json = json.loads(data_config_string)
+
     last_op = None
     last_params = None
 
     """docstring for Palazzetti"""
-    #def __init__(self, config):
-    def __init__(self, hass, config,title):
 
-        self.hass       = hass
-        self.ip         = config.data["host"]
-        self.id         = title
-        #'palazzetti_' + self.ip.replace(".","")
-        self.queryStr   = 'http://'+self.ip+'/cgi-bin/sendmsg.lua'
+    def __init__(self, host, title="uniqueID"):
+        self.ip = host
+        self.state = "online"
+        # self.icon       = "mdi:fireplace"
+        self.unique_id = title
+        self.data = {}
+        self.data["title"] = self.unique_id
 
-        _LOGGER.debug('Init of class palazzetti')
+        self.queryStr = "http://" + self.ip + "/cgi-bin/sendmsg.lua"
+
+        _LOGGER.debug("Init of class palazzetti")
 
         self.code_status = {
-            0 : "OFF",
-            1 : "OFF TIMER",
-            2 : "TESTFIRE",
-            3 : "HEATUP",
-            4 : "FUELIGN",
-            5 : "IGNTEST",
-            6 : "BURNING",
-            9 : "COOLFLUID",
-            10 : "FIRESTOP",
-            11 : "CLEANFIRE",
-            12 : "COOL",
-            241 : "CHIMNEY ALARM",
-            243 : "GRATE ERROR",
-            244 : "NTC2 ALARM",
-            245 : "NTC3 ALARM",
-            247 : "DOOR ALARM",
-            248 : "PRESS ALARM",
-            249 : "NTC1 ALARM",
-            250 : "TC1 ALARM",
-            252 : "GAS ALARM",
-            253 : "NOPELLET ALARM"
+            0: "OFF",
+            1: "OFF TIMER",
+            2: "TESTFIRE",
+            3: "HEATUP",
+            4: "FUELIGN",
+            5: "IGNTEST",
+            6: "BURNING",
+            9: "COOLFLUID",
+            10: "FIRESTOP",
+            11: "CLEANFIRE",
+            12: "COOL",
+            241: "CHIMNEY ALARM",
+            243: "GRATE ERROR",
+            244: "NTC2 ALARM",
+            245: "NTC3 ALARM",
+            247: "DOOR ALARM",
+            248: "PRESS ALARM",
+            249: "NTC1 ALARM",
+            250: "TC1 ALARM",
+            252: "GAS ALARM",
+            253: "NOPELLET ALARM",
         }
 
-        self.code_fan_nina = {
-            0 : "off",
-            6 : "high",
-            7 : "auto"
-        }
-        self.code_fan_nina_reversed = {
-            "off" : 0,
-            "high" : 6,
-            "auto" : 7
-        }
-
+        self.code_fan_nina = {0: "off", 6: "high", 7: "auto"}
+        self.code_fan_nina_reversed = {"off": 0, "high": 6, "auto": 7}
 
         # States are in the format DOMAIN.OBJECT_ID.
-        #hass.states.async_set(self.id+'.ip', self.ip)
+        # hass.states.async_set('palazzetti.ip', self.ip)
+
+        # initialize attributes
+        # self.async_get_stdt
+        # self.async_get_alls
+        # self.async_get_cntr
+
+    # generic command
+    async def async_get_gen(self, myrequest="GET LABL"):
+        """Get generic request"""
+        self.op = myrequest
+        await self.async_get_request()
 
     # make request GET STDT
     async def async_get_stdt(self):
         """Get counters"""
-        self.op = 'GET STDT'
+        self.op = "GET STDT"
         await self.async_get_request()
-    
+
     # make request GET ALLS
     async def async_get_alls(self):
         """Get All data or almost ;)"""
-        self.op = 'GET ALLS'
+        self.op = "GET ALLS"
         await self.async_get_request()
 
     # make request GET CNTR
     async def async_get_cntr(self):
         """Get counters"""
-        self.op = 'GET CNTR'
+        self.op = "GET CNTR"
         await self.async_get_request()
 
     # make request to check ip
     async def async_test(self):
         """Get counters"""
-        self.op = 'GET LABL'
-        await self.async_get_request(False)
+        self.op = "GET LABL"
+        response = await self.async_get_request(False)
+        # print(f"From async_test: {response}")
+        return response
 
     # send a get request for get datas
-    async def async_get_request(self,refresh_data=True):
+    async def async_get_request(self, refresh_data=True):
         """ request the stove """
         # params for GET
-        params = (
-            ('cmd', self.op),
-        )
+        params = (("cmd", self.op),)
+        _response_json = None
 
         # check if op is defined or stop here
         if self.op is None:
@@ -111,76 +242,90 @@ class Palazzetti(object):
 
         # let's go baby
         print(self.op)
+        _LOGGER.debug("Executing command: {self.op}")
+        # response = False
+        mytimeout = aiohttp.ClientTimeout(total=HTTP_TIMEOUT)
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(self.queryStr, params=params) as response:                    
-                    if response.status != 200 : 
-                        _LOGGER.error("Error during api request : http status returned is {}".format(response.status))
-                        #print(self.id+'.stove - offline')
-                        if refresh_data:
-                          self.hass.states.async_set(self.id+'.stove', 'offline',{'icon':'mdi:link-off'})
+            async with aiohttp.ClientSession(timeout=mytimeout) as session:
+                async with session.get(self.queryStr, params=params) as response:
+                    if response.status != 200:
+                        _LOGGER.error(
+                            "Error during api request : http status returned is {}".format(
+                                response.status
+                            )
+                        )
+                        print("palazzetti.stove - offline1")
+                        self.state = "offline"
                         response = False
                     else:
                         # save response in json object
-                        response_json = json.loads(await response.text())
+                        _response_json = json.loads(await response.text())
 
         except aiohttp.ClientError as client_error:
             _LOGGER.error("Error during api request: {emsg}".format(emsg=client_error))
-            #print(self.id+'.stove - offline')
-            if refresh_data:
-              self.hass.states.async_set(self.id+'.stove', 'offline',{'icon':'mdi:link-off'})
+            print("palazzetti.stove - offline2")
+            self.state = "offline"
+            # self.hass.states.async_set('palazzetti.stove', 'offline')
             response = False
         except json.decoder.JSONDecodeError as err:
             _LOGGER.error("Error during json parsing: response unexpected from Cbox")
-            #print(self.id+'.stove - offline')
-            if refresh_data:
-              self.hass.states.async_set(self.id+'.stove', 'offline',{'icon':'mdi:link-off'})
+            print("palazzetti.stove - offline3")
+            self.state = "offline"
+            # self.hass.states.async_set('palazzetti.stove', 'offline')
             response = False
-        
+        except:
+            response = False
+
+        self.data["state"] = self.state
+        if self.state != "online":
+            self.response_json.update({"icon": "mdi:link-off"})
         if response == False:
-            _LOGGER.debug('get_request() response false for op ' + self.op)
-            raise CannotConnect()
+            # print("response=False")
             return False
 
-        
-
-        #If no response return
-        if response_json['SUCCESS'] != True :
-            #print(self.id+'.stove - com error')
-            response_attrib = self.response_json.copy()
-            response_attrib.update({"icon":"mdi:link-off"})
-            if refresh_data:
-              self.hass.states.async_set(self.id+'.stove', 'com error', response_attrib)
-            #self.hass.states.async_set(self.id+'.stove', 'com error', self.response_json)
-            _LOGGER.error('Error returned by CBox')
+        # If no response return
+        if _response_json["SUCCESS"] != True:
+            print("palazzetti.stove - com error")
+            self.state = "com error"
+            self.data["state"] = self.state
+            self.response_json.update({"icon": "mdi:link-off"})
+            # self.hass.states.async_set('palazzetti.stove', 'com error', self.response_json)
+            _LOGGER.error("Error returned by CBox")
             return False
 
         # merge response with existing dict
-        if self.response_json != None :
+        if self.response_json != None:
             response_merged = self.response_json.copy()
-            response_merged.update(response_json['DATA'])
+            response_merged.update(_response_json["DATA"])
             self.response_json = response_merged
         else:
-            self.response_json = response_json['DATA']
+            self.response_json = _response_json["DATA"]
 
-        #print(self.id+'.stove - online')
-        response_attrib = self.response_json.copy()
-        response_attrib.update({"icon":"mdi:link"})
-        response_attrib.update({"unique_id":self.ip})
-        if refresh_data:
-          self.hass.states.async_set(self.id+'.stove', 'online', response_attrib)
-        if refresh_data:
-          self.change_states()
-        else:
-          print(self.response_json['LABEL'])
-          return self.response_json['LABEL']
+        # response_attrib = self.response_json.copy()
+        self.response_json.update({"icon": "mdi:link"})
+        self.response_json.update({"unique_id": self.unique_id})
+
+        # self.response_json = response_attrib
+
+        # print('palazzetti.stove - online')
+        self.state = "online"
+        self.data["state"] = self.state
+        self.data["ip"] = self.ip
+        if self.op == "GET ALLS":
+            self.data["status"] = self.code_status.get(
+                self.response_json["STATUS"], self.response_json["STATUS"]
+            )
+        # self.hass.states.async_set('palazzetti.stove', 'online', self.response_json)
+        if not refresh_data:
+            return self.response_json["LABEL"]
 
     # send request to stove
+    # DA AGGIORNARE STATO E ICONE
     def request_stove(self, op, params):
-        _LOGGER.debug('request stove ' + op)
+        _LOGGER.debug("request stove " + op)
 
         if op is None:
-            return False       
+            return False
 
         # save
         self.last_op = op
@@ -189,103 +334,131 @@ class Palazzetti(object):
         retry = 0
         success = False
         # error returned by Cbox
-        while not success :
+        while not success:
             # let's go baby
             try:
                 response = requests.get(self.queryStr, params=params, timeout=30)
             except requests.exceptions.ReadTimeout:
                 # timeout ( can happend when wifi is used )
-                _LOGGER.error('Timeout reach for request : ' + self.queryStr)
-                _LOGGER.info('Please check if you can ping : ' + self.ip)
-                #print(self.id+'.stove - offline')
-                self.hass.states.set(self.id+'.stove', 'offline')
+                _LOGGER.error("Timeout reach for request : " + self.queryStr)
+                _LOGGER.info("Please check if you can ping : " + self.ip)
+                print("palazzetti.stove - offline")
+                # self.hass.states.set('palazzetti.stove', 'offline')
+
                 return False
             except requests.exceptions.ConnectTimeout:
                 # equivalent of ping
-                _LOGGER.error('Please check parm ip : ' + self.ip)
-                #print(self.id+'.stove - offline')
-                self.hass.states.set(self.id+'.stove', 'offline',{'icon':'mdi:link-off'})
+                _LOGGER.error("Please check parm ip : " + self.ip)
+                print("palazzetti.stove - offline")
+                # self.hass.states.set('palazzetti.stove', 'offline')
                 return False
 
             if response == False:
+                raise Exception("Sorry timeout")
                 return False
 
             # save response in json object
             response_json = json.loads(response.text)
-            success = response_json['SUCCESS']
+            success = response_json["SUCCESS"]
 
             # cbox return error
             if not success:
-                #print(self.id+'.stove - com error')
-                response_attrib = self.response_json.copy()
-                response_attrib.update({"icon":"mdi:link-off"})
-                self.hass.states.async_set(self.id+'.stove', 'com error', response_attrib)
-                _LOGGER.error('Error returned by CBox - retry in 2 seconds (' +op+')')
+                print("palazzetti.stove - com error")
+                # self.hass.states.async_set('palazzetti.stove', 'com error', self.response_json)
+                _LOGGER.error(
+                    "Error returned by CBox - retry in 2 seconds (" + op + ")"
+                )
                 time.sleep(2)
                 retry = retry + 1
 
-                if retry == 3 :
-                     _LOGGER.error('Error returned by CBox - stop retry after 3 attempt (' +op+')')
-                     break
-            
-            
+                if retry == 3:
+                    _LOGGER.error(
+                        "Error returned by CBox - stop retry after 3 attempt ("
+                        + op
+                        + ")"
+                    )
+                    break
 
         # merge response with existing dict
-        if self.response_json != None :
+        if self.response_json != None:
             response_merged = self.response_json.copy()
-            response_merged.update(response_json['DATA'])
+            response_merged.update(response_json["DATA"])
             self.response_json = response_merged
         else:
-            self.response_json = response_json['DATA']
+            self.response_json = response_json["DATA"]
 
-        #print(self.id+'.stove - online')
         response_attrib = self.response_json.copy()
-        response_attrib.update({"icon":"mdi:link"})
-        response_attrib.update({"unique_id":self.ip})
-        self.hass.states.async_set(self.id+'.stove', 'online', response_attrib)
+        response_attrib.update({"icon": "mdi:link"})
+        response_attrib.update({"unique_id": self.ip})
+
+        self.response_json = response_attrib
+
+        print("palazzetti.stove - online")
+        # self.hass.states.async_set('palazzetti.stove', 'online', self.response_json)
 
         return response
 
-    #updates all attributes and entities
-    def change_states(self):
-        #to be further developed according to GET STDT data
-
-        """Change states following result of request"""
-        if self.op == 'GET ALLS':
-            status_icon='mdi:fireplace-off'
-            if self.response_json['STATUS'] == '6':
-                status_icon='mdi:fireplace'
-   
-            self.hass.states.async_set(self.id+'.STATUS', self.code_status.get(self.response_json['STATUS'], self.response_json['STATUS']),{'icon':status_icon})
-            self.hass.states.async_set(self.id+'.F2L', int(self.response_json['F2L']),{'icon':'mdi:fan'})
-            self.hass.states.async_set(self.id+'.PWR', self.response_json['PWR'],{'icon':'mdi:fire'})
-            self.hass.states.async_set(self.id+'.SETP', self.response_json['SETP'],{'friendly_name': 'Setpoint','unit_of_measurement': '°C','icon': 'hass:thermometer'})
+    # update configuration: call json parse function
+    async def async_config_parse(self):
+        _data_config_string = """{
+            "flag_modalita_ecostart": true,
+            "flag_sincronizzazione_orario": false,
+            "flag_presenza_chrono": false,
+            "flag_impostazione_setpoint": true,
+            "flag_accensione_macchina": false,
+            "flag_presenza_errore_macchina": false,
+            "flag_prenotazione_accensione_pellet": false,
+            "flag_tipologia_aria": false,
+            "flag_tipologia_idro": true,
+            "flag_presenza_ventilatore": false,
+            "flag_presenza_zero_speed_fan": false,
+            "flag_presenza_ventilatore_mod_auto": false,
+            "flag_presenza_ventilatore_mod_high": false,
+            "flag_presenza_ventilatore_mod_prop": false,
+            "flag_presenza_primo_ventilatore": false,
+            "flag_presenza_secondo_ventilatore": false,
+            "flag_presenza_terzo_ventilatore": false,
+            "flag_presenza_temperatura_combustione": false,
+            "flag_presenza_porta": false,
+            "flag_presenza_luci": true,
+            "value_tipologia_macchina": 2,
+            "value_accensione_macchina": true,
+            "value_descrizione_temperatura_aria": "kTemperaturaAmbiente",
+            "value_descrizione_temperatura_idro": "kTemperaturaAccumulo",
+            "value_descrizione_sonda_t1_idro": "kTemperaturaAcquaMandata",
+            "value_temperatura_sonda_principale": "",
+            "value_descrizione_sonda_principale": "T5",
+            "value_setpoint_minimo": 40,
+            "value_setpoint_massimo": 75
+        }"""
+        self.data_config_json = json.loads(_data_config_string)
 
     def get_sept(self):
         """Get target temperature for climate"""
-        if self.response_json == None or self.response_json['SETP'] == None:
+        if self.response_json == None or self.response_json["SETP"] == None:
             return 0
 
-        return self.response_json['SETP']
+        return self.response_json["SETP"]
 
-    def get_key(self,mykey='STATUS'):
+    # get generic KEY in the datas
+    # if key doesn't exist returns None
+    def get_key(self, mykey="STATUS"):
         """Get target temperature for climate"""
-        if self.response_json == None or (mykey in self.response_json) == False or self.response_json[mykey] == None:
+        if (
+            self.response_json == None
+            or (mykey in self.response_json) == False
+            or self.response_json[mykey] == None
+        ):
             return
 
         return self.response_json[mykey]
 
-    def get_unique(self):
-        """Get unique name of class"""
-
-        return self.id
-
     def set_parameters(self, datas):
         """set parameters following service call"""
-        self.set_sept(datas.get('SETP', None))       # temperature
-        self.set_powr(datas.get('PWR', None))        # fire power
-        self.set_rfan(datas.get('RFAN', None))       # Fan
-        self.set_status(datas.get('STATUS', None))   # status
+        self.set_sept(datas.get("SETP", None))  # temperature
+        self.set_powr(datas.get("PWR", None))  # fire power
+        self.set_rfan(datas.get("RFAN", None))  # Fan
+        self.set_status(datas.get("STATUS", None))  # status
 
     def set_sept(self, value):
         """Set target temperature"""
@@ -293,16 +466,14 @@ class Palazzetti(object):
         if value == None or type(value) != int:
             return
 
-        op = 'SET SETP'
+        op = "SET SETP"
 
         # params for GET
-        params = (
-            ('cmd', op + ' ' + str(value)),
-        )
+        params = (("cmd", op + " " + str(value)),)
 
         # avoid multiple request
-        if op == self.last_op and str(params) == self.last_params :
-            _LOGGER.debug('retry for op :' +op+' avoided')
+        if op == self.last_op and str(params) == self.last_params:
+            _LOGGER.debug("retry for op :" + op + " avoided")
             return
 
         # request the stove
@@ -310,14 +481,15 @@ class Palazzetti(object):
             return
 
         # change state
-        #print('set palazzetti.SETP to: ' + self.response_json['SETP'])
-        self.hass.states.set(self.id+'.SETP', self.response_json['SETP'])
+        print("set palazzetti.SETP to: " + self.response_json["SETP"])
+        self.data["setp"] = self.response_json["SETP"]
+        # self.hass.states.set('palazzetti.SETP', self.response_json['SETP'])
 
     def set_powr(self, value):
-        """Set power of fire"""
+        """Set power of fire
         if value is None :
             return
-        
+
         op = 'SET POWR'
 
         # params for GET
@@ -335,10 +507,10 @@ class Palazzetti(object):
             return
 
         # change state
-        self.hass.states.set(self.id+'.PWR', self.response_json['PWR'])
+        self.hass.states.set('palazzetti.PWR', self.response_json['PWR'])"""
 
     def set_rfan(self, value):
-        """Set fan level"""
+        """Set fan level
 
         if value == None:
             return
@@ -357,17 +529,17 @@ class Palazzetti(object):
         # avoid multiple request
         if op == self.last_op and str(params) == self.last_params :
             _LOGGER.debug('retry for op :' +op+' avoided')
-            return           
+            return
 
         # request the stove
         if self.request_stove(op, params) == False:
             return
 
         # change state
-        self.hass.states.async_set(self.id+'.F2L', self.response_json['F2L'])
+        self.hass.states.async_set('palazzetti.F2L', self.response_json['F2L'])"""
 
     def set_status(self, value):
-        """start or stop stove"""
+        """start or stop stove
         if value == None or type(value) != str :
             return
 
@@ -387,10 +559,13 @@ class Palazzetti(object):
             return
 
         # change state
-        self.hass.states.async_set(self.id+'.STATUS', self.code_status.get(self.response_json['STATUS'], self.response_json['STATUS']))
+        self.hass.states.async_set('palazzetti.STATUS', self.code_status.get(self.response_json['STATUS'], self.response_json['STATUS']))"""
 
     def get_datas(self):
         return self.response_json
 
-class CannotConnect(exceptions.HomeAssistantError):
-    """Error to indicate we cannot connect."""
+    def get_data_states(self):
+        return self.data
+
+    def get_data_config(self):
+        return self.data_config_json
