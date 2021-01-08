@@ -14,23 +14,26 @@ _LOGGER = logging.getLogger(__name__)
 DATA_SCHEMA = vol.Schema({"host": str})
 
 
-async def validate_input(hass: core.HomeAssistant, mydata):
-    """Validate the user input allows us to connect.
-    Data has the keys from DATA_SCHEMA with values provided by the user.
-    """
+async def validate_input(_user_host):
+    """chech if user host is a ConnectionBox IP"""
     from .palazzetti_local_api import PalDiscovery
 
     check_api = PalDiscovery()
-    check_ip = await check_api.checkIP(mydata)
+    check_ip = await check_api.checkIP(_user_host)
+
     if check_ip:
         # IP is a Connection Box
 
         # get static data
-        myapi = Palazzetti(mydata)
+        myapi = Palazzetti(_user_host)
         await myapi.async_get_stdt()
         await myapi.async_config_parse()
-        response = myapi.get_data_config()
+        response = myapi.get_data_config_json()
+
+        # return static data
         return response
+
+    # return false: IP not found
     return False
 
 
@@ -43,21 +46,10 @@ class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
-        # errors = {}
-        # errors["base"] = "cannot_connect"
-        # if user_input is not None:
-        #     try:
-        #         info = await validate_input(self.hass, user_input)
-        #         return self.async_create_entry(title = "ConnBox IP: " + user_input["host"] , data = user_input)
-        #     except CannotConnect:
-        #         errors["base"] = "cannot_connect"
-        #     except InvalidAuth:
-        #         errors["base"] = "invalid_auth"
-        #     except Exception:  # pylint: disable=broad-except
-        #         _LOGGER.exception("Unexpected exception")
-        #         errors["base"] = "unknown"
+
         if user_input is not None:
 
+            # check if device is already registered using IP (should be MAC or SN)
             check_exists = await self.async_set_unique_id(
                 "plz_" + user_input["host"].replace(".", "")
             )
@@ -74,14 +66,11 @@ class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         try:
-            info = await validate_input(self.hass, self.host)
+            info = await validate_input(self.host)
             user_input["stove"] = info
             if info:
                 return self.async_create_entry(
-                    title="ConnBox (" + self.host + ")",
-                    data=user_input
-                    # version=self.VERSION,
-                    # connection_class=self.CONNECTION_CLASS,
+                    title="ConnBox (" + self.host + ")", data=user_input
                 )
 
         except CannotConnect:

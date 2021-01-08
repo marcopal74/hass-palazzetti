@@ -12,7 +12,6 @@ from .const import DOMAIN, DATA_PALAZZETTI
 
 async def async_setup_entry(hass, config_entry, add_entities):
     """Set up the sensor platform from config flow"""
-    # ipname=config_entry.data["host"].replace(".","")
     setup_platform(hass, config_entry, add_entities)
 
 
@@ -31,23 +30,22 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         "kTemperaturaAcquaMandata": "Temp. Mandata",
     }
     entity_list = []
-    # entity_list.append(SensorT1(sensor_id))
 
     nome_temp = code_status.get(
-        _config["value_descrizione_temperatura_aria"],
-        _config["value_descrizione_temperatura_aria"],
+        _config["_value_temp_air_description"],
+        _config["_value_temp_air_description"],
     )
-    if _config["flag_tipologia_idro"]:
+    if _config["_flag_is_hydro"]:
         nome_temp = code_status.get(
-            _config["value_descrizione_temperatura_idro"],
-            _config["value_descrizione_temperatura_idro"],
+            _config["_value_temp_hydro_description"],
+            _config["_value_temp_hydro_description"],
         )
 
     # Sonda principale
     entity_list.append(
         SensorX(
             sensor_id,
-            _config["value_descrizione_sonda_principale"],
+            _config["_value_temp_main_description"],
             TEMP_CELSIUS,
             None,
             nome_temp,
@@ -65,7 +63,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         )
     )
 
-    if _config["flag_tipologia_idro"]:
+    if _config["_flag_is_hydro"]:
         # T2 Idro
         entity_list.append(
             SensorX(
@@ -82,10 +80,10 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
                 sensor_id,
                 "T1",
                 TEMP_CELSIUS,
-                None,
+                "mdi:arrow-right-bold",
                 code_status.get(
-                    _config["value_descrizione_sonda_t1_idro"],
-                    _config["value_descrizione_sonda_t1_idro"],
+                    _config["_value_temp_hydro_t1_description"],
+                    _config["_value_temp_hydro_t1_description"],
                 ),
             )
         )
@@ -101,10 +99,19 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         )
     )
 
-    # da rimpiazzare con flag presenza sonda livello pellet tipo leveltronic
-    if _config["flag_presenza_luci"]:
-        entity_list.append(SensorPelletL(sensor_id))
+    # Leveltronic
+    if _config["_flag_has_pellet_sensor_leveltronic"]:
+        entity_list.append(
+            SensorX(
+                sensor_id,
+                "PLEVEL",
+                "cm",
+                "mdi:cup",
+                "Livello Pellet",
+            )
+        )
 
+    # Now creates the proper sensor entities
     add_entities(
         entity_list,
         update_before_add=True,
@@ -135,20 +142,15 @@ class SensorX(Entity):
         """Return the name of the sensor."""
         return self._id + "_" + self._key
 
-    # @property
-    # def friendly_name(self):
-    #    """Return the name of the sensor."""
-    #    return self._fname
-
     @property
     def state(self):
         """Return the state of the sensor."""
         return self._state
 
-    # @property
-    # def unit_of_measurement(self):
-    #    """Return the unit of measurement."""
-    #    return self._unit
+    @property
+    def icon(self):
+        """Return the name of the sensor."""
+        return self._icon
 
     @property
     def device_info(self):
@@ -177,64 +179,7 @@ class SensorX(Entity):
             {
                 ATTR_FRIENDLY_NAME: self._fname,
                 ATTR_UNIT_OF_MEASUREMENT: self._unit,
-                "test": "test string",
+                "credits": "Palazzetti",
             }
         )
         return attributes
-
-
-class SensorPelletL(Entity):
-    """Representation of a sensor."""
-
-    def __init__(self, class_id):
-        """Initialize the sensor."""
-        self._state = None
-        self._id = class_id
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._id + "_pellet_l"
-
-    @property
-    def friendly_name(self):
-        """Return the name of the sensor."""
-        return "Pellet level"
-
-    @property
-    def icon(self):
-        """Return the name of the sensor."""
-        return "mdi:cup"
-
-    @property
-    def unique_id(self):
-        """Return the name of the sensor."""
-        return self._id + "_PLEVEL"
-
-    @property
-    def state(self):
-        """Return the state of the sensor."""
-        return self._state
-
-    @property
-    def unit_of_measurement(self):
-        """Return the unit of measurement."""
-        return "cm"
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, self._id)},
-            "name": self.hass.data[DATA_PALAZZETTI + self._id].get_key("LABEL"),
-            "manufacturer": "Palazzetti Lelio S.p.A.",
-            "model": self.hass.data[DATA_PALAZZETTI + self._id].get_key("SN"),
-            "sw_version": self.hass.data[DATA_PALAZZETTI + self._id].get_key("SYSTEM"),
-        }
-
-    def update(self):
-        """Fetch new state data for the sensor.
-
-        This is the only method that should fetch new data for Home Assistant.
-        """
-        # self._state = self.hass.data[DOMAIN]['plevel']
-        self._state = self.hass.data[DATA_PALAZZETTI + self._id].get_key("PLEVEL")

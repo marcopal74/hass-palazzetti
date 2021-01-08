@@ -1,10 +1,15 @@
 import json
 import logging
-import asyncio
+
+# import asyncio
 import requests
 import aiohttp
 import socket
-import re
+
+import time
+
+# from .palazzetti_sdk_asset_parser_python import AssetParser as psap
+from palazzetti_sdk_asset_parser import AssetParser as psap
 
 from ..const import DOMAIN, DATA_PALAZZETTI, INTERVAL, INTERVAL_CNTR, INTERVAL_STDT
 
@@ -13,7 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 UDP_PORT = 54549
 DISCOVERY_TIMEOUT = 5
 DISCOVERY_MESSAGE = b"plzbridge?"
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 2048
 HTTP_TIMEOUT = 15
 
 
@@ -40,7 +45,7 @@ class PalDiscovery(object):
                     mydata_json = json.loads(mydata)
                     if mydata_json["SUCCESS"] == True:
                         myips.append(addr[0])
-                        print(addr[0])
+                        # print(addr[0])
 
             except socket.timeout:
                 # print("retry")
@@ -90,70 +95,39 @@ class PalDiscovery(object):
 
     async def checkIP(self, testIP):
         is_IP_OK = await self.checkIP_UDP(testIP)
-        print(f"From checkIP_UDP {is_IP_OK}")
+        # print(f"From checkIP_UDP {is_IP_OK}")
 
         if not is_IP_OK:
-            print("No ConnBox found via UDP, checking via HTTP...")
+            # print("No ConnBox found via UDP, checking via HTTP...")
             is_IP_OK = await self.checkIP_HTTP(testIP)
-            print(f"From checkIP_HTTP {is_IP_OK}")
+            # print(f"From checkIP_HTTP {is_IP_OK}")
             if not is_IP_OK:
-                print("No ConnBox found")
+                # print("No ConnBox found")
                 return False
 
         return True
 
 
 class Palazzetti(object):
+    """Palazzetti HTTP class"""
 
-    pinged = False
     op = None
+
+    response_json_alls = None
+    response_json_stdt = None
+
     response_json = None
 
     data = None
     data_config_json = None
-    # to be removed in the future
-    data_config_string = """{
-        "flag_modalita_ecostart": true,
-        "flag_sincronizzazione_orario": false,
-        "flag_presenza_chrono": false,
-        "flag_impostazione_setpoint": true,
-        "flag_accensione_macchina": false,
-        "flag_presenza_errore_macchina": false,
-        "flag_prenotazione_accensione_pellet": false,
-        "flag_tipologia_aria": false,
-        "flag_tipologia_idro": true,
-        "flag_presenza_ventilatore": false,
-        "flag_presenza_zero_speed_fan": false,
-        "flag_presenza_ventilatore_mod_auto": false,
-        "flag_presenza_ventilatore_mod_high": false,
-        "flag_presenza_ventilatore_mod_prop": false,
-        "flag_presenza_primo_ventilatore": false,
-        "flag_presenza_secondo_ventilatore": false,
-        "flag_presenza_terzo_ventilatore": false,
-        "flag_presenza_temperatura_combustione": false,
-        "flag_presenza_porta": false,
-        "flag_presenza_luci": false,
-        "value_tipologia_macchina": 2,
-        "value_accensione_macchina": true,
-        "value_descrizione_temperatura_aria": "kTemperaturaAmbiente",
-        "value_descrizione_temperatura_idro": "kTemperaturaAccumulo",
-        "value_descrizione_sonda_t1_idro": "kTemperaturaAcquaMandata",
-        "value_temperatura_sonda_principale": "",
-        "value_descrizione_sonda_principale": "T5",
-        "value_setpoint_minimo": 40,
-        "value_setpoint_massimo": 75
-    }"""
-    data_config_json = json.loads(data_config_string)
+    data_config_object = None
 
     last_op = None
     last_params = None
 
-    """docstring for Palazzetti"""
-
     def __init__(self, host, title="uniqueID"):
         self.ip = host
         self.state = "online"
-        # self.icon       = "mdi:fireplace"
         self.unique_id = title
         self.data = {}
         self.data["title"] = self.unique_id
@@ -189,14 +163,6 @@ class Palazzetti(object):
         self.code_fan_nina = {0: "off", 6: "high", 7: "auto"}
         self.code_fan_nina_reversed = {"off": 0, "high": 6, "auto": 7}
 
-        # States are in the format DOMAIN.OBJECT_ID.
-        # hass.states.async_set('palazzetti.ip', self.ip)
-
-        # initialize attributes
-        # self.async_get_stdt
-        # self.async_get_alls
-        # self.async_get_cntr
-
     # generic command
     async def async_get_gen(self, myrequest="GET LABL"):
         """Get generic request"""
@@ -223,7 +189,7 @@ class Palazzetti(object):
 
     # make request to check ip
     async def async_test(self):
-        """Get counters"""
+        """Get label"""
         self.op = "GET LABL"
         response = await self.async_get_request(False)
         # print(f"From async_test: {response}")
@@ -241,7 +207,7 @@ class Palazzetti(object):
             return False
 
         # let's go baby
-        print(self.op)
+        # print(self.op)
         _LOGGER.debug("Executing command: {self.op}")
         # response = False
         mytimeout = aiohttp.ClientTimeout(total=HTTP_TIMEOUT)
@@ -254,7 +220,7 @@ class Palazzetti(object):
                                 response.status
                             )
                         )
-                        print("palazzetti.stove - offline1")
+                        # print("palazzetti.stove - offline1")
                         self.state = "offline"
                         response = False
                     else:
@@ -263,15 +229,13 @@ class Palazzetti(object):
 
         except aiohttp.ClientError as client_error:
             _LOGGER.error("Error during api request: {emsg}".format(emsg=client_error))
-            print("palazzetti.stove - offline2")
+            # print("palazzetti.stove - offline2")
             self.state = "offline"
-            # self.hass.states.async_set('palazzetti.stove', 'offline')
             response = False
         except json.decoder.JSONDecodeError as err:
             _LOGGER.error("Error during json parsing: response unexpected from Cbox")
-            print("palazzetti.stove - offline3")
+            # print("palazzetti.stove - offline3")
             self.state = "offline"
-            # self.hass.states.async_set('palazzetti.stove', 'offline')
             response = False
         except:
             response = False
@@ -285,11 +249,10 @@ class Palazzetti(object):
 
         # If no response return
         if _response_json["SUCCESS"] != True:
-            print("palazzetti.stove - com error")
+            # print("palazzetti.stove - com error")
             self.state = "com error"
             self.data["state"] = self.state
             self.response_json.update({"icon": "mdi:link-off"})
-            # self.hass.states.async_set('palazzetti.stove', 'com error', self.response_json)
             _LOGGER.error("Error returned by CBox")
             return False
 
@@ -301,26 +264,24 @@ class Palazzetti(object):
         else:
             self.response_json = _response_json["DATA"]
 
-        # response_attrib = self.response_json.copy()
         self.response_json.update({"icon": "mdi:link"})
         self.response_json.update({"unique_id": self.unique_id})
-
-        # self.response_json = response_attrib
-
-        # print('palazzetti.stove - online')
         self.state = "online"
         self.data["state"] = self.state
         self.data["ip"] = self.ip
+
         if self.op == "GET ALLS":
             self.data["status"] = self.code_status.get(
                 self.response_json["STATUS"], self.response_json["STATUS"]
             )
-        # self.hass.states.async_set('palazzetti.stove', 'online', self.response_json)
+            self.response_json_alls = _response_json["DATA"]
+        elif self.op == "GET STDT":
+            self.response_json_stdt = _response_json["DATA"]
+
         if not refresh_data:
             return self.response_json["LABEL"]
 
     # send request to stove
-    # DA AGGIORNARE STATO E ICONE
     def request_stove(self, op, params):
         _LOGGER.debug("request stove " + op)
 
@@ -333,6 +294,9 @@ class Palazzetti(object):
 
         retry = 0
         success = False
+
+        response = False
+        _response_json = None
         # error returned by Cbox
         while not success:
             # let's go baby
@@ -342,29 +306,35 @@ class Palazzetti(object):
                 # timeout ( can happend when wifi is used )
                 _LOGGER.error("Timeout reach for request : " + self.queryStr)
                 _LOGGER.info("Please check if you can ping : " + self.ip)
-                print("palazzetti.stove - offline")
-                # self.hass.states.set('palazzetti.stove', 'offline')
-
+                # print("palazzetti.stove - offline")
+                self.state = "offline"
+                self.data["state"] = self.state
                 return False
             except requests.exceptions.ConnectTimeout:
                 # equivalent of ping
                 _LOGGER.error("Please check parm ip : " + self.ip)
-                print("palazzetti.stove - offline")
-                # self.hass.states.set('palazzetti.stove', 'offline')
+                # print("palazzetti.stove - offline")
+                self.state = "offline"
+                self.data["state"] = self.state
+                self.response_json.update({"icon": "mdi:link-off"})
                 return False
 
             if response == False:
+                self.state = "offline"
+                self.data["state"] = self.state
+                self.response_json.update({"icon": "mdi:link-off"})
                 raise Exception("Sorry timeout")
-                return False
 
             # save response in json object
-            response_json = json.loads(response.text)
-            success = response_json["SUCCESS"]
+            _response_json = json.loads(response.text)
+            success = _response_json["SUCCESS"]
 
             # cbox return error
             if not success:
-                print("palazzetti.stove - com error")
-                # self.hass.states.async_set('palazzetti.stove', 'com error', self.response_json)
+                # print("palazzetti.stove - com error")
+                self.state = "com error"
+                self.data["state"] = self.state
+                self.response_json.update({"icon": "mdi:link-off"})
                 _LOGGER.error(
                     "Error returned by CBox - retry in 2 seconds (" + op + ")"
                 )
@@ -382,56 +352,26 @@ class Palazzetti(object):
         # merge response with existing dict
         if self.response_json != None:
             response_merged = self.response_json.copy()
-            response_merged.update(response_json["DATA"])
+            response_merged.update(_response_json["DATA"])
             self.response_json = response_merged
         else:
-            self.response_json = response_json["DATA"]
+            self.response_json = _response_json["DATA"]
 
-        response_attrib = self.response_json.copy()
-        response_attrib.update({"icon": "mdi:link"})
-        response_attrib.update({"unique_id": self.ip})
-
-        self.response_json = response_attrib
-
-        print("palazzetti.stove - online")
-        # self.hass.states.async_set('palazzetti.stove', 'online', self.response_json)
+        self.response_json.update({"icon": "mdi:link"})
+        self.response_json.update({"unique_id": self.unique_id})
+        self.state = "online"
+        self.data["state"] = self.state
+        self.data["ip"] = self.ip
 
         return response
 
     # update configuration: call json parse function
     async def async_config_parse(self):
-        _data_config_string = """{
-            "flag_modalita_ecostart": true,
-            "flag_sincronizzazione_orario": false,
-            "flag_presenza_chrono": false,
-            "flag_impostazione_setpoint": true,
-            "flag_accensione_macchina": false,
-            "flag_presenza_errore_macchina": false,
-            "flag_prenotazione_accensione_pellet": false,
-            "flag_tipologia_aria": false,
-            "flag_tipologia_idro": true,
-            "flag_presenza_ventilatore": false,
-            "flag_presenza_zero_speed_fan": false,
-            "flag_presenza_ventilatore_mod_auto": false,
-            "flag_presenza_ventilatore_mod_high": false,
-            "flag_presenza_ventilatore_mod_prop": false,
-            "flag_presenza_primo_ventilatore": false,
-            "flag_presenza_secondo_ventilatore": false,
-            "flag_presenza_terzo_ventilatore": false,
-            "flag_presenza_temperatura_combustione": false,
-            "flag_presenza_porta": false,
-            "flag_presenza_luci": true,
-            "value_tipologia_macchina": 2,
-            "value_accensione_macchina": true,
-            "value_descrizione_temperatura_aria": "kTemperaturaAmbiente",
-            "value_descrizione_temperatura_idro": "kTemperaturaAccumulo",
-            "value_descrizione_sonda_t1_idro": "kTemperaturaAcquaMandata",
-            "value_temperatura_sonda_principale": "",
-            "value_descrizione_sonda_principale": "T5",
-            "value_setpoint_minimo": 40,
-            "value_setpoint_massimo": 75
-        }"""
-        self.data_config_json = json.loads(_data_config_string)
+        asset_parser = psap(
+            get_alls=self.response_json_alls, get_stdt=self.response_json_stdt
+        )
+        asset_capabilities = asset_parser.parsed_data
+        self.data_config_object = asset_capabilities
 
     def get_sept(self):
         """Get target temperature for climate"""
@@ -561,11 +501,20 @@ class Palazzetti(object):
         # change state
         self.hass.states.async_set('palazzetti.STATUS', self.code_status.get(self.response_json['STATUS'], self.response_json['STATUS']))"""
 
-    def get_datas(self):
+    def get_data_json(self):
         return self.response_json
 
     def get_data_states(self):
         return self.data
 
-    def get_data_config(self):
-        return self.data_config_json
+    def get_data_config_json(self):
+        return vars(self.data_config_object)
+
+    def get_data_config_obj(self):
+        return self.data_config_object
+
+    def get_data_alls_json(self):
+        return self.response_json_alls
+
+    def get_data_stdt_json(self):
+        return self.response_json_stdt

@@ -7,5 +7,5 @@
   "codeowners": [
       "@marcopal74"
   ],
-  "requirements": []  
+  "requirements": ["palazzetti-sdk-asset-parser==1.0.5"]
 }
