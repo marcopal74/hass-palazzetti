@@ -53,7 +53,7 @@ async def update_states(hass: core.HomeAssistant, _entry: config_entries.ConfigE
     _class_id = _entry.unique_id
     _api = hass.data[DATA_PALAZZETTI + _class_id]
     # update parsed configuration
-    await _api.async_config_parse()
+    #await _api.async_config_parse()
     _config = _api.get_data_config_json()
     # prendo la parsed configuration dall'entry che ho creato in fase di registrazione dell'oggetto
     # _config = _entry.data["stove"]
@@ -89,7 +89,7 @@ async def update_states(hass: core.HomeAssistant, _entry: config_entries.ConfigE
         _state_attrib["SETP"],
         {
             "friendly_name": "Setpoint",
-            "unit_of_measurement": "°C",
+            "unit_of_measurement": "Â°C",
             "icon": "hass:thermometer",
             "unique_id": _class_id + ".setp",
         },
@@ -100,6 +100,7 @@ async def async_setup_entry(
     hass: core.HomeAssistant, entry: config_entries.ConfigEntry
 ):
     _LOGGER.debug("Init of palazzetti component")
+    print("Lancia async_setup_entry")
 
     # to be used to define unique id for instance
     # class_id = "plz_" + entry.data["host"].replace(".", "")
@@ -109,7 +110,6 @@ async def async_setup_entry(
     api = Palazzetti(entry.data["host"], class_id)
     hass.data[DATA_PALAZZETTI + class_id] = api
     await api.async_get_alls()
-    # await async_upd_alls(hass,class_id)
     await api.async_get_stdt()
     await api.async_get_cntr()
     await update_states(hass, entry)
@@ -132,9 +132,11 @@ async def async_setup_entry(
     async_track_time_interval(hass, update_static_datas, INTERVAL_STDT)
 
     # sensor platform
+    print("Creating sensors")
     hass.async_add_job(hass.config_entries.async_forward_entry_setup(entry, "sensor"))
 
     # services
+    print("Creating service")
     def set_parameters(call):
         """Handle the service call 'set'"""
         api.set_parameters(call.data)
@@ -147,4 +149,5 @@ async def async_setup_entry(
 
 async def async_setup(hass, config):
     """Set up the GitHub Custom component from yaml configuration."""
+    print("Lancia async_setup")
     return True

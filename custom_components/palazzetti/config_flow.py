@@ -22,12 +22,15 @@ async def validate_input(_user_host):
     check_ip = await check_api.checkIP(_user_host)
 
     if check_ip:
+        print("check-ip is OK")
         # IP is a Connection Box
 
         # get static data
         myapi = Palazzetti(_user_host)
+        print("object is created")
         await myapi.async_get_stdt()
-        await myapi.async_config_parse()
+        #await myapi.async_get_alls()
+        #await myapi.async_config_parse()
         response = myapi.get_data_config_json()
 
         # return static data
@@ -66,8 +69,10 @@ class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         try:
+            print("pre-validate input")
             info = await validate_input(self.host)
             user_input["stove"] = info
+            print("post-validate input")
             if info:
                 return self.async_create_entry(
                     title="ConnBox (" + self.host + ")", data=user_input
