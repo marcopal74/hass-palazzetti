@@ -10,7 +10,7 @@ from homeassistant import config_entries, core
 
 from .const import DOMAIN, DATA_PALAZZETTI, INTERVAL, INTERVAL_CNTR, INTERVAL_STDT
 
-from .palazzetti_local_api import Palazzetti
+from palazzetti_sdk_local_api import Palazzetti
 
 from homeassistant.helpers.event import async_track_time_interval
 import homeassistant.helpers.config_validation as cv
@@ -53,7 +53,7 @@ async def update_states(hass: core.HomeAssistant, _entry: config_entries.ConfigE
     _class_id = _entry.unique_id
     _api = hass.data[DATA_PALAZZETTI + _class_id]
     # update parsed configuration
-    #await _api.async_config_parse()
+    # await _api.async_config_parse()
     _config = _api.get_data_config_json()
     # prendo la parsed configuration dall'entry che ho creato in fase di registrazione dell'oggetto
     # _config = _entry.data["stove"]
@@ -89,7 +89,7 @@ async def update_states(hass: core.HomeAssistant, _entry: config_entries.ConfigE
         _state_attrib["SETP"],
         {
             "friendly_name": "Setpoint",
-            "unit_of_measurement": "Â°C",
+            "unit_of_measurement": "°C",
             "icon": "hass:thermometer",
             "unique_id": _class_id + ".setp",
         },
@@ -137,6 +137,7 @@ async def async_setup_entry(
 
     # services
     print("Creating service")
+
     def set_parameters(call):
         """Handle the service call 'set'"""
         api.set_parameters(call.data)

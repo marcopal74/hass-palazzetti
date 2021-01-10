@@ -2,7 +2,7 @@
 import logging
 import json
 import voluptuous as vol
-from .palazzetti_local_api import Palazzetti
+from palazzetti_sdk_local_api import Palazzetti
 
 from homeassistant import config_entries, core, exceptions
 
@@ -16,7 +16,7 @@ DATA_SCHEMA = vol.Schema({"host": str})
 
 async def validate_input(_user_host):
     """chech if user host is a ConnectionBox IP"""
-    from .palazzetti_local_api import PalDiscovery
+    from palazzetti_sdk_local_api import PalDiscovery
 
     check_api = PalDiscovery()
     check_ip = await check_api.checkIP(_user_host)
@@ -29,8 +29,8 @@ async def validate_input(_user_host):
         myapi = Palazzetti(_user_host)
         print("object is created")
         await myapi.async_get_stdt()
-        #await myapi.async_get_alls()
-        #await myapi.async_config_parse()
+        # await myapi.async_get_alls()
+        # await myapi.async_config_parse()
         response = myapi.get_data_config_json()
 
         # return static data
