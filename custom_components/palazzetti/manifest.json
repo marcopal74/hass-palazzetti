@@ -7,5 +7,5 @@
   "codeowners": [
       "@marcopal74"
   ],
-  "requirements": ["palazzetti-sdk-local-api==1.0.2"]
+  "requirements": ["palazzetti-sdk-local-api==1.0.5"]
 }

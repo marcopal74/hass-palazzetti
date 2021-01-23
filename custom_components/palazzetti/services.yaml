@@ -1,0 +1,8 @@
+set_parms:
+  description: >
+    Imposta il parametro al valore desiderato
+  fields:
+    SETP:
+      description: >
+        imposta il setpoint desiderato in gradi Celsius
+      example: 25
