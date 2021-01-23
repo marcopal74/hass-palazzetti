@@ -4,50 +4,26 @@ Configuration:
 To use the palazzetti component you will need to add the integration from
 the integration menu and set the ip of the Connection Box when asked
 """
-import homeassistant
-import logging, asyncio, json, requests, voluptuous, aiohttp
-
+import logging, asyncio
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
-
+from homeassistant.helpers.event import async_track_time_interval
 from .const import DOMAIN, DATA_PALAZZETTI, INTERVAL, INTERVAL_CNTR, INTERVAL_STDT
-
+from .input_number import create_input_number
+from .helper import setup_platform
 from .palazzetti_sdk_local_api import Palazzetti
 
-from homeassistant.helpers.event import async_track_time_interval
-import homeassistant.helpers.config_validation as cv
-import time
-from .helper import get_platform, create_platform
-
-
 _LOGGER = logging.getLogger(__name__)
-
-CONFIG_SCHEMA = voluptuous.Schema(
-    {
-        DOMAIN: voluptuous.Schema(
-            {
-                voluptuous.Required("ip"): cv.string,
-            }
-        )
-    },
-    extra=voluptuous.ALLOW_EXTRA,
-)
 
 PLATFORMS = [
     "switch",
     "sensor",
+    "input_number",
     # "fan",
-    "climate",
+    # "climate",
     "cover",
     "light",
 ]
-
-
-async def setup_platform(hass: homeassistant, name: str):
-    platform = get_platform(hass, name)
-
-    if platform is None:
-        create_platform(hass, name)
 
 
 async def async_upd_alls(hass: HomeAssistant, entry: ConfigEntry):
@@ -109,29 +85,29 @@ async def update_states(hass: HomeAssistant, entry: ConfigEntry):
         },
     )
 
-    if _config["_flag_has_fan"]:
-        hass.states.async_set(
-            _class_id + ".F2L",
-            _state_attrib["F2L"],
-            {"icon": "mdi:fan"},
-        )
+    # if _config["_flag_has_fan"]:
+    #     hass.states.async_set(
+    #         _class_id + ".F2L",
+    #         _state_attrib["F2L"],
+    #         {"icon": "mdi:fan"},
+    #     )
 
-    hass.states.async_set(
-        _class_id + ".PWR",
-        _state_attrib["PWR"],
-        {"icon": "mdi:fire"},
-    )
+    # hass.states.async_set(
+    #     _class_id + ".PWR",
+    #     _state_attrib["PWR"],
+    #     {"icon": "mdi:fire"},
+    # )
 
-    if _config["_flag_has_setpoint"]:
-        hass.states.async_set(
-            _class_id + ".SETP",
-            _state_attrib["SETP"],
-            {
-                "friendly_name": "Setpoint",
-                "unit_of_measurement": "°C",
-                "icon": "hass:thermometer",
-            },
-        )
+    # if _config["_flag_has_setpoint"]:
+    #     hass.states.async_set(
+    #         _class_id + ".SETP",
+    #         _state_attrib["SETP"],
+    #         {
+    #             "friendly_name": "Setpoint",
+    #             "unit_of_measurement": "°C",
+    #             "icon": "hass:thermometer",
+    #         },
+    #     )
 
 
 async def async_setup(hass: HomeAssistant, config: dict):
@@ -200,11 +176,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 hass.async_create_task(
                     hass.config_entries.async_forward_entry_setup(entry, component)
                 )
-        # elif component == "switch":
-        #     if _config["_flag_has_switch_on_off"]:
-        #         hass.async_create_task(
-        #             hass.config_entries.async_forward_entry_setup(entry, component)
-        #         )
+        elif component == "input_number":
+            hass.async_create_task(create_input_number(hass, entry))
         else:
             hass.async_create_task(
                 hass.config_entries.async_forward_entry_setup(entry, component)

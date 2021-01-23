@@ -1,11 +1,9 @@
 """Config flow for warmup4ie integration."""
 import logging
-import json
 import re
 import voluptuous as vol
+from homeassistant import config_entries, exceptions
 from .palazzetti_sdk_local_api import Palazzetti
-
-from homeassistant import config_entries, core, exceptions
 
 from . import DOMAIN  # pylint:disable=unused-import
 
@@ -13,6 +11,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # TODO adjust the data schema to the data that you need
 DATA_SCHEMA = vol.Schema({"host": str})
+STEP_USER_DATA_SCHEMA = vol.Schema({"host": str})
 
 
 async def validate_input(_user_host):
@@ -46,18 +45,20 @@ async def validate_input(_user_host):
                 # )
                 # await myapi.async_set_sn(_newsn[:23])
                 # return false: SN not matching RegEx
-                return False
+                raise InvalidSN
         elif "MAC" in myconfig["data"]:
             _sn = "LT_" + myconfig["data"]["MAC"].replace(":", "")
         else:
-            return False
+            raise InvalidSN
 
         # return static data
         myconfig["data"].update({"SN": _sn})
         return myconfig
 
+    raise CannotConnect
+
     # return false: IP not found
-    return False
+    # return False
 
 
 class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -69,24 +70,17 @@ class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
+        if user_input is None:
+            return self.async_show_form(
+                step_id="user", data_schema=STEP_USER_DATA_SCHEMA
+            )
 
-        if user_input is not None:
-
-            self.host = user_input["host"]
-
-            return await self.async_step_link(user_input)
-
-        return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA)
-
-    async def async_step_link(self, user_input=None):
-        """Attempt to link with ConnBox"""
         errors = {}
 
         try:
             print("pre-validate input")
+            self.host = user_input["host"]
             info = await validate_input(self.host)
-            if not info:
-                return self.async_abort(reason="cannot_connect")
 
             user_input["stove"] = info["config"]
             print("post-validate input")
@@ -101,12 +95,15 @@ class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title=info["data"]["LABEL"],
                     data=user_input,
-                    description="Descrizione a caso",
+                    # description="Descrizione a caso",
                 )
-
         except CannotConnect:
             _LOGGER.error("Error connecting to the ConnBox at %s", self.host)
             errors["base"] = "cannot_connect"
+
+        except InvalidSN:
+            _LOGGER.error("Error validating SN to the ConnBox at %s", self.host)
+            errors["base"] = "invalid_sn"
 
         except Exception:  # pylint: disable=broad-except
             _LOGGER.exception(
@@ -114,8 +111,15 @@ class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             errors["base"] = "unknown"
 
-        return self.async_abort(reason="cannot_connect")
+        # return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA)
+        return self.async_show_form(
+            step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
+        )
 
 
 class CannotConnect(exceptions.HomeAssistantError):
     """Error to indicate we cannot connect."""
+
+
+class InvalidSN(exceptions.HomeAssistantError):
+    """Error indicating embedded SN is not valid"""

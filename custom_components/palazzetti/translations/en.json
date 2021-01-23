@@ -14,7 +14,8 @@
             }
         },
         "error": {
-            "cannot_connect": "The Connbox IP is not responding"
+            "cannot_connect": "The Connbox IP is not responding",
+            "invalid_sn": "The embedded Serial Number is not valid"
         },
         "abort": {
             "cannot_connect": "IP not corresponding to a ConnectionBox",

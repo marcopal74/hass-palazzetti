@@ -76,17 +76,6 @@ class DemoSwitch(SwitchEntity):
         """Return if the state is based on assumptions."""
         return self._assumed
 
-    # @property
-    # def current_power_w(self):
-    #     """Return the current power usage in W."""
-    #     if self._state:
-    #         return 100
-    #
-    # @property
-    # def today_energy_kwh(self):
-    #     """Return the today total energy usage in kWh."""
-    #     return 15
-
     @property
     def is_on(self):
         """Return true if switch is on."""

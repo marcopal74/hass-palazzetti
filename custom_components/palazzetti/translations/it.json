@@ -14,7 +14,8 @@
             }
         },
         "error": {
-            "cannot_connect": "La ConnBox non risponde"
+            "cannot_connect": "La ConnBox non risponde",
+            "invalid_sn": "Il Serial Number letto dalla scheda non è valido"
         },
         "abort": {
             "cannot_connect": "l'IP inserito non corrisponde ad una Connection Box",
