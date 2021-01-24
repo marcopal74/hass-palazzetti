@@ -196,17 +196,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 
-async def finish_setup(hass: HomeAssistant, config: dict):
-    """Finish set up once platforms are set up."""
-    switches = None
-
-    while not switches:
-        # Not all platforms might be loaded.
-        if switches is not None:
-            await asyncio.sleep(0)
-        switches = sorted(hass.states.async_entity_ids("switch"))
-
-
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
     unload_ok = all(
