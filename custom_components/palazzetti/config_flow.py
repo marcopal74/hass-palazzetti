@@ -47,7 +47,7 @@ async def validate_input(_user_host):
                 # return false: SN not matching RegEx
                 raise InvalidSN
         elif "MAC" in myconfig["data"]:
-            _sn = "LT_" + myconfig["data"]["MAC"].replace(":", "")
+            _sn = "LT" + myconfig["data"]["MAC"].replace(":", "")
         else:
             raise InvalidSN
 

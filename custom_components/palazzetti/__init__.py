@@ -8,9 +8,14 @@ import logging, asyncio
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers import config_validation as cv, entity_platform
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.entity_component import EntityComponent
+from homeassistant.const import ATTR_ENTITY_ID
 from .const import DOMAIN, DATA_PALAZZETTI, INTERVAL, INTERVAL_CNTR, INTERVAL_STDT
 from .input_number import create_input_number
-from .helper import setup_platform
+from .helper import setup_platform, get_platform
+import voluptuous as vol
 from .palazzetti_sdk_local_api import Palazzetti
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,6 +60,8 @@ async def update_states(hass: HomeAssistant, entry: ConfigEntry):
     _data = _api.get_data_states()
 
     _state_attrib = _api.get_data_json()
+    _state_attrib.update({"friendly_name": "Stove"})
+
     status_icon = "mdi:fireplace-off"
     if _state_attrib["STATUS"] == 6:
         status_icon = "mdi:fireplace"
@@ -68,22 +75,33 @@ async def update_states(hass: HomeAssistant, entry: ConfigEntry):
     #    myname=f"{DOMAIN}_{intid}.stove"
 
     hass.states.async_set(
-        _class_id + ".LABEL",
+        DOMAIN + "." + _class_id + "_LABEL",
         _state_attrib["LABEL"],
-        {"icon": "mdi:tag"},
+        {"icon": "mdi:tag", "friendly_name": "Label"},
     )
-
-    hass.states.async_set(_class_id + ".stove", _data["state"], _state_attrib)
-
-    hass.states.async_set(_class_id + ".config", _data["ip"], _config)
 
     hass.states.async_set(
-        _class_id + ".STATUS",
-        _data["status"],
-        {
-            "icon": status_icon,
-        },
+        DOMAIN + "." + _class_id + "_stove", _data["state"], _state_attrib
     )
+
+    hass.states.async_set(DOMAIN + "." + _class_id + "_config", _data["ip"], _config)
+
+    hass.states.async_set(
+        DOMAIN + "." + _class_id + "_STATUS",
+        _data["status"],
+        {"icon": status_icon, "friendly_name": "Status"},
+    )
+
+    # device_registry = await dr.async_get_registry(hass)
+    # device_registry.async_get_or_create(
+    #     config_entry_id=DOMAIN + "." + _class_id + "_LABEL",
+    #     # connections={(dr.CONNECTION_NETWORK_MAC, config.mac)},
+    #     identifiers={(DOMAIN, entry.unique_id)},
+    #     manufacturer="Palazzetti Lelio S.p.A.",
+    #     name=_api.get_key("LABEL"),
+    #     model=_api.get_key("SN"),
+    #     sw_version=_api.get_key("SYSTEM"),
+    # )
 
     # if _config["_flag_has_fan"]:
     #     hass.states.async_set(
@@ -153,7 +171,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     async_track_time_interval(hass, update_cntr_datas, INTERVAL_CNTR)
     async_track_time_interval(hass, update_static_datas, INTERVAL_STDT)
 
-    # sensor platform
+    # create platforms
     print("Creating platforms")
     for component in PLATFORMS:
         if component == "cover":
@@ -186,11 +204,91 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # services
     print("Creating service")
 
-    def set_parameters(call):
-        """Handle the service call 'set'"""
-        api.set_parameters(call.data)
+    myids = []
+    mydata_domain = hass.data[DOMAIN]
+    for product in mydata_domain:
+        apitest = hass.data[DOMAIN][product]
+        if apitest.get_data_config_json()["_flag_has_setpoint"]:
+            myids.append(DOMAIN + "." + apitest.product_id + "_stove")
 
-    hass.services.async_register(DOMAIN, "set_parms", set_parameters)
+    SET_SCHEMA = vol.Schema(
+        {
+            vol.Required(ATTR_ENTITY_ID): vol.In(myids),
+            # vol.Optional(ATTR_ENTITY_ID): cv.entity_id,
+            vol.Required("value"): cv.string,
+        }
+    )
+
+    # SET_SCHEMA1 = vol.Schema(
+    #     {
+    #         vol.Required("value"): cv.string,
+    #         vol.Optional(ATTR_ENTITY_ID): vol.In(myids),
+    #     }
+    # )
+
+    # SET_SCHEMA2 = {
+    #     vol.Required("entity_id"): cv.string,
+    #     vol.Required("value"): cv.string,
+    # }
+
+    # def preprocess_data(data):
+    #     """Preprocess the service data."""
+    #     base = {
+    #         entity_field: data.pop(entity_field)
+    #         for entity_field in cv.ENTITY_SERVICE_FIELDS
+    #         if entity_field in data
+    #     }
+    #
+    #     base["params"] = data
+    #     return base
+
+    async def set_setpoint(call):
+        """Handle the service call 'set'"""
+
+        # mydata = call
+        _api = None
+        myentity = call.data["entity_id"][11:-6]
+        # myentity2 = base
+        mydata_domain = hass.data[DOMAIN]
+        # mydata_entry = entry
+        for product in mydata_domain:
+            apitest = hass.data[DOMAIN][product]
+            if apitest.product_id == myentity:
+                _api = apitest
+        if _api:
+            myvalue = call.data["value"]
+            await _api.async_set_setpoint(myvalue)
+
+    # async def set_setpoint_e(product, call):
+    #     """Handle the service call 'set'"""
+    #     mydata = call
+    #     _api = None
+    #     myentity = call.data["entity-id"][11:-6]
+    #     mydata_domain = hass.data[DOMAIN]
+    #     mydata_entry = entry
+    #     for product in mydata_domain:
+    #         apitest = hass.data[DOMAIN][product]
+    #         if apitest.product_id == myentity:
+    #             _api = apitest
+    #     if _api:
+    #         myvalue = call.data["value"]
+    #         await _api.async_set_setpoint(myvalue)
+
+    # apro la piattaforma degli slider: input_number
+    # platform_name = "palazzetti"
+    # component = EntityComponent(_LOGGER, DOMAIN, hass)
+    # component.async_register_entity_service(
+    #     "set_params",
+    #     vol.All(cv.make_entity_service_schema(SET_SCHEMA2), preprocess_data),
+    #     set_setpoint_e,
+    # )
+    # component.async_register_entity_service(
+    #     "set_setpoint",
+    #     SET_SCHEMA1,
+    #     "async_set_setpoint",
+    # )
+
+    hass.services.async_register(DOMAIN, "set_setpoint", set_setpoint, SET_SCHEMA)
 
     # Return boolean to indicate that initialization was successfully.
     return True

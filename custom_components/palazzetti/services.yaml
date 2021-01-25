@@ -1,8 +1,12 @@
-set_parms:
+set_setpoint:
   description: >
-    Imposta il parametro al valore desiderato
+    Imposta il setpoint al valore desiderato, scelgliere l'entità "stove" desiderata
   fields:
-    SETP:
+    entity_id:
+      description: >
+        scegli l'entità palazzetti.xxxx_stove
+      example: palazzetti.plz_lt202019080580588033807_stove
+    value:
       description: >
         imposta il setpoint desiderato in gradi Celsius
-      example: 25
+      example: 20
