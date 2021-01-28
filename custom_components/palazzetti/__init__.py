@@ -27,7 +27,7 @@ PLATFORMS = [
     # "fan",
     # "climate",
     "cover",
-    "light",
+    # "light",
 ]
 
 
@@ -204,6 +204,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # services
     print("Creating service")
 
+    # servizio set setpoint
     myids = []
     mydata_domain = hass.data[DOMAIN]
     for product in mydata_domain:
@@ -289,6 +290,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # )
 
     hass.services.async_register(DOMAIN, "set_setpoint", set_setpoint, SET_SCHEMA)
+
+    # servizio set silent
+    myids2 = []
+    mydata_domain = hass.data[DOMAIN]
+    for product in mydata_domain:
+        apitest = hass.data[DOMAIN][product]
+        if apitest.get_data_config_json()["_flag_has_fan_zero_speed_fan"]:
+            myids2.append(DOMAIN + "." + apitest.product_id + "_stove")
+
+    SET_SCHEMA = vol.Schema(
+        {
+            vol.Required(ATTR_ENTITY_ID): vol.In(myids2),
+            # vol.Optional(ATTR_ENTITY_ID): cv.entity_id,
+        }
+    )
+
+    async def set_silent(call):
+        """Handle the service call 'set'"""
+
+        # mydata = call
+        _api = None
+        myentity = call.data["entity_id"][11:-6]
+        # myentity2 = base
+        mydata_domain = hass.data[DOMAIN]
+        # mydata_entry = entry
+        for product in mydata_domain:
+            apitest = hass.data[DOMAIN][product]
+            if apitest.product_id == myentity:
+                _api = apitest
+        if _api:
+            await _api.async_set_fan_silent_mode()
+
+    hass.services.async_register(DOMAIN, "set_silent", set_silent, SET_SCHEMA)
 
     # Return boolean to indicate that initialization was successfully.
     return True

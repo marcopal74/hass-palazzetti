@@ -10,3 +10,11 @@ set_setpoint:
       description: >
         imposta il setpoint desiderato in gradi Celsius
       example: 20
+set_silent:
+  description: >
+    Imposta la stufa in modalità silent
+  fields:
+    entity_id:
+      description: >
+        scegli l'entità palazzetti.xxxx_stove
+      example: palazzetti.plz_lt202019080580588033807_stove

@@ -130,6 +130,11 @@ class MyNumber(InputNumber):
         return True
 
     @property
+    def available(self) -> bool:
+        """Return True if roller and hub is available."""
+        return self._product.online
+
+    @property
     def state(self):
         """Return the state of the component."""
         if self._type == "power":
