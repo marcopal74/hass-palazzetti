@@ -17,6 +17,13 @@ async def async_setup_entry(hass, config_entry, add_entities):
     product = hass.data[DOMAIN][config_entry.entry_id]
 
     _config = product.get_data_config_json()
+    _data = product.get_data_states()
+
+    status_icon = "mdi:fireplace-off"
+    if product.get_key("STATUS") == 6:
+        status_icon = "mdi:fireplace"
+    elif _config["_flag_error_status"]:
+        status_icon = "mdi:alert"
 
     # logica di configurazione delle sonde in base al parse della configurazione
     code_status = {
@@ -36,6 +43,17 @@ async def async_setup_entry(hass, config_entry, add_entities):
             _config["_value_temp_hydro_description"],
             _config["_value_temp_hydro_description"],
         )
+
+    # Label + status
+    entity_list.append(
+        SensorState(
+            product,
+            "status",
+            None,
+            status_icon,
+            product.get_key("LABEL"),
+        )
+    )
 
     # Sonda principale
     entity_list.append(
@@ -119,7 +137,9 @@ async def async_setup_entry(hass, config_entry, add_entities):
 class SensorX(Entity):
     """Representation of a sensor."""
 
-    def __init__(self, product, key_val, unit=None, icon=None, friendly_name=None):
+    def __init__(
+        self, product, key_val, unit=None, icon=None, friendly_name=None, mydevice=None
+    ):
         """Initialize the sensor."""
         self._product = product
         self._state = None
@@ -158,10 +178,15 @@ class SensorX(Entity):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._id)},
-            "name": self._product.get_key("LABEL"),
-            "manufacturer": "Palazzetti Lelio S.p.A.",
-            "model": self._product.get_key("SN"),
-            "sw_version": self._product.get_key("SYSTEM"),
+            # "name": self._product.get_key("LABEL"),
+            # "manufacturer": "Palazzetti Lelio S.p.A.",
+            # "model": self._product.get_key("SN"),
+            # "sw_version": "mod: "
+            # + str(self._product.get_key("MOD"))
+            # + " v"
+            # + str(self._product.get_key("VER"))
+            # + " "
+            # + self._product.get_key("FWDATE"),
         }
 
     def update(self):
@@ -184,3 +209,84 @@ class SensorX(Entity):
             }
         )
         return attributes
+
+
+class SensorState(Entity):
+    """Representation of a sensor."""
+
+    def __init__(
+        self, product, key_val, unit=None, icon=None, friendly_name=None, mydevice=None
+    ):
+        """Initialize the sensor."""
+        self._product = product
+        self._state = None
+        self._id = product.product_id
+        self._key = key_val
+        self._unit = unit
+        self._icon = icon
+        self._fname = friendly_name or DEVICE_DEFAULT_NAME
+
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        return self._fname
+
+    @property
+    def unique_id(self):
+        """Return the name of the sensor."""
+        return self._id + "_" + self._key
+
+    @property
+    def state(self):
+        """Return the state of the sensor."""
+        return self._state
+
+    @property
+    def icon(self):
+        """Return the name of the sensor."""
+        return self._icon
+
+    @property
+    def available(self) -> bool:
+        """Return True if the product is available."""
+        return self._product.online
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, self._id)},
+            # "name": self._product.get_key("LABEL"),
+            # "manufacturer": "Palazzetti Lelio S.p.A.",
+            # "model": self._product.get_key("SN"),
+            # "sw_version": "mod: "
+            # + str(self._product.get_key("MOD"))
+            # + " v"
+            # + str(self._product.get_key("VER"))
+            # + " "
+            # + self._product.get_key("FWDATE"),
+            # "via_device": (DOMAIN, self._product.hub_id),
+        }
+
+    def update(self):
+        """Fetch new state data for the sensor.
+
+        This is the only method that should fetch new data for Home Assistant.
+        """
+        status_icon = "mdi:fireplace-off"
+        if self._product.get_key("STATUS") == 6:
+            status_icon = "mdi:fireplace"
+        elif self._product.get_data_config_json()["_flag_error_status"]:
+            status_icon = "mdi:alert"
+
+        self._icon = status_icon
+        self._state = self._product.get_data_states()[self._key]
+
+    @property
+    def device_state_attributes(self):
+        """Return the device state attributes."""
+        # attributes = super().device_state_attributes
+        _config_attrib = self._product.get_data_config_json()
+        # _data_attrib = self._product.get_data_json()
+        # _all_attrib = _config_attrib.copy()
+        # _all_attrib.update(_data_attrib)
+        return _config_attrib

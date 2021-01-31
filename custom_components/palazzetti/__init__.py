@@ -21,6 +21,7 @@ from .palazzetti_sdk_local_api import Palazzetti
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [
+    "binary_sensor",
     "switch",
     "sensor",
     "input_number",
@@ -34,98 +35,77 @@ PLATFORMS = [
 async def async_upd_alls(hass: HomeAssistant, entry: ConfigEntry):
     _api = hass.data[DOMAIN][entry.entry_id]
     await _api.async_get_alls()
-    await update_states(hass, entry)
+    # await update_states(hass, entry)
 
 
 async def async_upd_cntr(hass: HomeAssistant, entry: ConfigEntry):
     _api = hass.data[DOMAIN][entry.entry_id]
     await _api.async_get_cntr()
-    await update_states(hass, entry)
+    # await update_states(hass, entry)
 
 
 async def async_upd_stdt(hass: HomeAssistant, entry: ConfigEntry):
     _api = hass.data[DOMAIN][entry.entry_id]
     await _api.async_get_stdt()
-    await update_states(hass, entry)
+    # await update_states(hass, entry)
 
 
 # creates states and updates data according to configuration of stove
 async def update_states(hass: HomeAssistant, entry: ConfigEntry):
-    _class_id = entry.unique_id
-    _api = hass.data[DOMAIN][entry.entry_id]
+    pass
+    # _class_id = entry.unique_id
+    # _api = hass.data[DOMAIN][entry.entry_id]
 
-    _config = _api.get_data_config_json()
-    _config.update({"icon": "mdi:ip-network", "friendly_name": "Configuration"})
 
-    _data = _api.get_data_states()
+#
+# _config = _api.get_data_config_json()
+# _config.update({"icon": "mdi:ip-network", "friendly_name": "Configuration"})
+#
+# _data = _api.get_data_states()
+#
+# _state_attrib = _api.get_data_json()
+# _state_attrib.update({"friendly_name": "Stove"})
 
-    _state_attrib = _api.get_data_json()
-    _state_attrib.update({"friendly_name": "Stove"})
+# status_icon = "mdi:fireplace-off"
+# if _state_attrib["STATUS"] == 6:
+#     status_icon = "mdi:fireplace"
+# elif _config["_flag_error_status"]:
+#     status_icon = "mdi:alert"
 
-    status_icon = "mdi:fireplace-off"
-    if _state_attrib["STATUS"] == 6:
-        status_icon = "mdi:fireplace"
-    elif _config["_flag_error_status"]:
-        status_icon = "mdi:alert"
+# intid=0
+# myname=DOMAIN + ".stove"
+# while not hass.states.async_available(myname):
+#    intid=intid+1
+#    myname=f"{DOMAIN}_{intid}.stove"
 
-    # intid=0
-    # myname=DOMAIN + ".stove"
-    # while not hass.states.async_available(myname):
-    #    intid=intid+1
-    #    myname=f"{DOMAIN}_{intid}.stove"
+# hass.states.async_set(
+#     DOMAIN + "." + _class_id + "_LABEL",
+#     _state_attrib["LABEL"],
+#     {"icon": "mdi:tag", "friendly_name": "Label"},
+# )
 
-    hass.states.async_set(
-        DOMAIN + "." + _class_id + "_LABEL",
-        _state_attrib["LABEL"],
-        {"icon": "mdi:tag", "friendly_name": "Label"},
-    )
+# hass.states.async_set(
+#     DOMAIN + "." + _class_id + "_stove", _data["state"], _state_attrib
+# )
+#
+# hass.states.async_set(DOMAIN + "." + _class_id + "_config", _data["ip"], _config)
+#
+# hass.states.async_set(
+#     DOMAIN + "." + _class_id + "_STATUS",
+#     _data["status"],
+#     {"icon": status_icon, "friendly_name": "Status"},
+# )
 
-    hass.states.async_set(
-        DOMAIN + "." + _class_id + "_stove", _data["state"], _state_attrib
-    )
-
-    hass.states.async_set(DOMAIN + "." + _class_id + "_config", _data["ip"], _config)
-
-    hass.states.async_set(
-        DOMAIN + "." + _class_id + "_STATUS",
-        _data["status"],
-        {"icon": status_icon, "friendly_name": "Status"},
-    )
-
-    # device_registry = await dr.async_get_registry(hass)
-    # device_registry.async_get_or_create(
-    #     config_entry_id=DOMAIN + "." + _class_id + "_LABEL",
-    #     # connections={(dr.CONNECTION_NETWORK_MAC, config.mac)},
-    #     identifiers={(DOMAIN, entry.unique_id)},
-    #     manufacturer="Palazzetti Lelio S.p.A.",
-    #     name=_api.get_key("LABEL"),
-    #     model=_api.get_key("SN"),
-    #     sw_version=_api.get_key("SYSTEM"),
-    # )
-
-    # if _config["_flag_has_fan"]:
-    #     hass.states.async_set(
-    #         _class_id + ".F2L",
-    #         _state_attrib["F2L"],
-    #         {"icon": "mdi:fan"},
-    #     )
-
-    # hass.states.async_set(
-    #     _class_id + ".PWR",
-    #     _state_attrib["PWR"],
-    #     {"icon": "mdi:fire"},
-    # )
-
-    # if _config["_flag_has_setpoint"]:
-    #     hass.states.async_set(
-    #         _class_id + ".SETP",
-    #         _state_attrib["SETP"],
-    #         {
-    #             "friendly_name": "Setpoint",
-    #             "unit_of_measurement": "°C",
-    #             "icon": "hass:thermometer",
-    #         },
-    #     )
+# device_registry = await dr.async_get_registry(hass)
+# device_registry.async_get_or_create(
+#     config_entry_id=DOMAIN + "." + _class_id + "_LABEL",
+#     # connections={(dr.CONNECTION_NETWORK_MAC, config.mac)},
+#     identifiers={(DOMAIN, entry.unique_id)},
+#     manufacturer="Palazzetti Lelio S.p.A.",
+#     name=_api.get_key("LABEL"),
+#     model=_api.get_key("SN"),
+#     sw_version=_api.get_key("SYSTEM"),
+# )
 
 
 async def async_setup(hass: HomeAssistant, config: dict):
@@ -151,7 +131,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await api.async_get_alls()
     await api.async_get_stdt()
     await api.async_get_cntr()
-    await update_states(hass, entry)
+    # await update_states(hass, entry)
     _config = api.get_data_config_json()
 
     # loop for get dynamic data of stove

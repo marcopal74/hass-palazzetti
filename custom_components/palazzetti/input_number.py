@@ -152,10 +152,16 @@ class MyNumber(InputNumber):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._id)},
-            "name": self._product.get_key("LABEL"),
-            "manufacturer": "Palazzetti Lelio S.p.A.",
-            "model": self._product.get_key("SN"),
-            "sw_version": self._product.get_key("SYSTEM"),
+            # "name": self._product.get_key("LABEL"),
+            # "manufacturer": "Palazzetti Lelio S.p.A.",
+            # "model": self._product.get_key("SN"),
+            # "sw_version": "mod: "
+            # + str(self._product.get_key("MOD"))
+            # + " v"
+            # + str(self._product.get_key("VER"))
+            # + " "
+            # + self._product.get_key("FWDATE"),
+            # "via_device": (DOMAIN, self._product.hub_id),
         }
 
     async def async_added_to_hass(self):

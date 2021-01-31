@@ -141,10 +141,16 @@ class PalClimate(ClimateEntity):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._id)},
-            "name": self.hass.data[self.DATA_DOMAIN].get_key("LABEL"),
-            "manufacturer": "Palazzetti Lelio S.p.A.",
-            "model": self.hass.data[self.DATA_DOMAIN].get_key("SN"),
-            "sw_version": self.hass.data[self.DATA_DOMAIN].get_key("SYSTEM"),
+            # "name": self.hass.data[self.DATA_DOMAIN].get_key("LABEL"),
+            # "manufacturer": "Palazzetti Lelio S.p.A.",
+            # "model": self.hass.data[self.DATA_DOMAIN].get_key("SN"),
+            # "sw_version": "mod: "
+            # + str(self.hass.data[self.DATA_DOMAIN].get_key("MOD"))
+            # + " v"
+            # + str(self.hass.data[self.DATA_DOMAIN].get_key("VER"))
+            # + " "
+            # + self.hass.data[self.DATA_DOMAIN].get_key("FWDATE"),
+            # "via_device": (DOMAIN, self.hass.data[self.DATA_DOMAIN].hub_id),
         }
 
     @property

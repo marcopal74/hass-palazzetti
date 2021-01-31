@@ -17,12 +17,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     myentities = []
 
     myentities.append(
-        DemoSwitch(product, "ON/OFF", False, "mdi:power", device_class="outlet")
+        BaseSwitch(product, "ON/OFF", False, "mdi:power", device_class="outlet")
     )
 
     # assumes that 0 speed fan exists also if minimum fan set of the main fan is 0
     fan = 1
-    if (
+    if product.get_data_config_json()["_flag_is_air"] and (
         product.get_data_config_json()["_flag_has_fan_zero_speed_fan"]
         or product.get_data_config_json()["_value_fan_limits"][((fan - 1) * 2)] == 0
     ):
@@ -33,7 +33,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     async_add_entities(myentities)
 
 
-class DemoSwitch(SwitchEntity):
+class BaseSwitch(SwitchEntity):
     """Representation of a demo switch."""
 
     def __init__(self, product, name, state, icon, device_class=None):
@@ -49,13 +49,7 @@ class DemoSwitch(SwitchEntity):
 
     @property
     def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, self._id)},
-            "name": self._product.get_key("LABEL"),
-            "manufacturer": "Palazzetti Lelio S.p.A.",
-            "model": self._product.get_key("SN"),
-            "sw_version": self._product.get_key("SYSTEM"),
-        }
+        return {"identifiers": {(DOMAIN, self._id)}}
 
     @property
     def unique_id(self):
@@ -148,13 +142,7 @@ class ZeroSpeed(SwitchEntity):
 
     @property
     def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, self._id)},
-            "name": self._product.get_key("LABEL"),
-            "manufacturer": "Palazzetti Lelio S.p.A.",
-            "model": self._product.get_key("SN"),
-            "sw_version": self._product.get_key("SYSTEM"),
-        }
+        return {"identifiers": {(DOMAIN, self._id)}}
 
     @property
     def unique_id(self):
