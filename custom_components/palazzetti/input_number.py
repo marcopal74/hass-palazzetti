@@ -5,13 +5,19 @@ from .helper import get_platform
 
 
 async def create_input_number(hass, entry):
-    product = hass.data[DOMAIN][entry.entry_id]
+    _config = entry.data["stove"]
+    product = None
+    try:
+        product = hass.data[DOMAIN][entry.entry_id]
+        _config = product.get_data_config_json()
+    except:
+        pass
     my_sliders = []
 
     # slider impostazione potenza
     data = {
         "id": f"{entry.unique_id}_pwr",
-        "initial": product.get_data_config_json()["_value_power"],
+        "initial": _config["_value_power"],
         "max": 5.0,
         "min": 1.0,
         "mode": "slider",
@@ -19,77 +25,71 @@ async def create_input_number(hass, entry):
         "step": 1.0,
         "icon": "mdi:fire",
     }
-    slider_power = MyNumber(hass, data, product, "power")
+    slider_power = MyNumber(hass, data, product, "power", entry.unique_id)
     my_sliders.append(slider_power)
 
     # slider impostazione setpoint
-    if product.get_data_config_json()["_flag_has_setpoint"]:
+    if _config["_flag_has_setpoint"]:
         data2 = {
             "id": f"{entry.unique_id}_setpoint",
-            "initial": product.get_data_config_json()["_value_setpoint"],
-            "max": product.get_data_config_json()["_value_setpoint_max"],
-            "min": product.get_data_config_json()["_value_setpoint_min"],
+            "initial": _config["_value_setpoint"],
+            "max": _config["_value_setpoint_max"],
+            "min": _config["_value_setpoint_min"],
             "mode": "slider",
             "name": "Setpoint",
             "unit_of_measurement": "°C",
             "step": 1.0,
             "icon": "hass:thermometer",
         }
-        slider_setpoint = MyNumber(hass, data2, product, "setpoint")
+        slider_setpoint = MyNumber(hass, data2, product, "setpoint", entry.unique_id)
         my_sliders.append(slider_setpoint)
 
     # slider impostazione ventilatore principale
-    if product.get_data_config_json()["_flag_has_fan_main"]:
+    if _config["_flag_has_fan_main"]:
         fan = 1
         data3 = {
             "id": f"{entry.unique_id}_fan1",
-            "initial": product.get_data_config_json()["_value_fan_main"],
-            "max": product.get_data_config_json()["_value_fan_limits"][
-                (((fan - 1) * 2) + 1)
-            ],
-            "min": product.get_data_config_json()["_value_fan_limits"][((fan - 1) * 2)],
+            "initial": _config["_value_fan_main"],
+            "max": _config["_value_fan_limits"][(((fan - 1) * 2) + 1)],
+            "min": _config["_value_fan_limits"][((fan - 1) * 2)],
             "mode": "slider",
             "name": "Main Fan",
             "step": 1.0,
             "icon": "mdi:fan",
         }
-        slider_fan1 = MyNumber(hass, data3, product, "fan1")
+        slider_fan1 = MyNumber(hass, data3, product, "fan1", entry.unique_id)
         my_sliders.append(slider_fan1)
 
     # slider impostazione secondo ventilatore
-    if product.get_data_config_json()["_flag_has_fan_second"]:
+    if _config["_flag_has_fan_second"]:
         fan = 2
         data4 = {
             "id": f"{entry.unique_id}_fan2",
-            "initial": product.get_data_config_json()["_value_fan_second"],
-            "max": product.get_data_config_json()["_value_fan_limits"][
-                (((fan - 1) * 2) + 1)
-            ],
-            "min": product.get_data_config_json()["_value_fan_limits"][((fan - 1) * 2)],
+            "initial": _config["_value_fan_second"],
+            "max": _config["_value_fan_limits"][(((fan - 1) * 2) + 1)],
+            "min": _config["_value_fan_limits"][((fan - 1) * 2)],
             "mode": "slider",
             "name": "Fan 2",
             "step": 1.0,
             "icon": "mdi:fan-speed-2",
         }
-        slider_fan2 = MyNumber(hass, data4, product, "fan2")
+        slider_fan2 = MyNumber(hass, data4, product, "fan2", entry.unique_id)
         my_sliders.append(slider_fan2)
 
     # slider impostazione terzo ventilatore
-    if product.get_data_config_json()["_flag_has_fan_third"]:
+    if _config["_flag_has_fan_third"]:
         fan = 3
         data5 = {
             "id": f"{entry.unique_id}_fan3",
-            "initial": product.get_data_config_json()["_value_fan_third"],
-            "max": product.get_data_config_json()["_value_fan_limits"][
-                (((fan - 1) * 2) + 1)
-            ],
-            "min": product.get_data_config_json()["_value_fan_limits"][((fan - 1) * 2)],
+            "initial": _config["_value_fan_third"],
+            "max": _config["_value_fan_limits"][(((fan - 1) * 2) + 1)],
+            "min": _config["_value_fan_limits"][((fan - 1) * 2)],
             "mode": "slider",
             "name": "Fan 3",
             "step": 1.0,
             "icon": "mdi:fan-speed-3",
         }
-        slider_fan3 = MyNumber(hass, data5, product, "fan3")
+        slider_fan3 = MyNumber(hass, data5, product, "fan3", entry.unique_id)
         my_sliders.append(slider_fan3)
 
     # if no sliders exit
@@ -109,13 +109,12 @@ async def create_input_number(hass, entry):
 class MyNumber(InputNumber):
     """Representation of a slider."""
 
-    def __init__(self, hass, config, product, tipo):
+    def __init__(self, hass, config, product, tipo, uid):
         """Initialize an input number."""
         super().__init__(config)
         self.hass = hass
         self._name = config.get("name")
-        # self._id = self.unique_id[:-4]
-        self._id = product.product_id
+        self._id = uid
         self._product = product
         self._type = tipo
 
@@ -132,11 +131,13 @@ class MyNumber(InputNumber):
     @property
     def available(self) -> bool:
         """Return True if roller and hub is available."""
-        return self._product.online
+        return self._product and self._product.online
 
     @property
     def state(self):
         """Return the state of the component."""
+        if not self._product:
+            return
         if self._type == "power":
             return self._product.get_key("PWR")
         elif self._type == "setpoint":
@@ -152,16 +153,6 @@ class MyNumber(InputNumber):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._id)},
-            # "name": self._product.get_key("LABEL"),
-            # "manufacturer": "Palazzetti Lelio S.p.A.",
-            # "model": self._product.get_key("SN"),
-            # "sw_version": "mod: "
-            # + str(self._product.get_key("MOD"))
-            # + " v"
-            # + str(self._product.get_key("VER"))
-            # + " "
-            # + self._product.get_key("FWDATE"),
-            # "via_device": (DOMAIN, self._product.hub_id),
         }
 
     async def async_added_to_hass(self):

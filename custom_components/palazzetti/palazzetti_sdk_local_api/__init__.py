@@ -775,7 +775,7 @@ class Palazzetti(object):
         return self.data
 
     # retuens JSON with all keys of GET ALLS, GET STDT and GET CNTR
-    def get_data_json(self) -> json:
+    def get_data_json(self) -> dict:
         return self.response_json
 
     # retuens JSON specific for hub with all keys of GET ALLS, GET STDT
@@ -804,7 +804,7 @@ class Palazzetti(object):
         return newlist
 
     # returns JSON with configuration keys
-    def get_data_config_json(self) -> json:
+    def get_data_config_json(self) -> dict:
         if not self.data_config_object:
             return
         return vars(self.data_config_object)

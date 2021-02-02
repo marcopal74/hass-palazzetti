@@ -1,13 +1,12 @@
 """Demo platform for the cover component."""
 from homeassistant.components.cover import (
-    ATTR_POSITION,
-    ATTR_TILT_POSITION,
     SUPPORT_CLOSE,
     SUPPORT_OPEN,
     CoverEntity,
 )
-from homeassistant.core import callback
-from homeassistant.helpers.event import async_track_utc_time_change
+
+# from homeassistant.core import callback
+# from homeassistant.helpers.event import async_track_utc_time_change
 
 from .const import DOMAIN
 
@@ -24,7 +23,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the Demo covers."""
     async_add_entities(
         [
-            DemoCover(
+            PalCover(
                 hass,
                 product,
                 "fdoor",
@@ -37,7 +36,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     )
 
 
-class DemoCover(CoverEntity):
+class PalCover(CoverEntity):
     """Representation of a demo cover."""
 
     def __init__(
@@ -74,16 +73,6 @@ class DemoCover(CoverEntity):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._id)},
-            # "name": self._product.get_key("LABEL"),
-            # "manufacturer": "Palazzetti Lelio S.p.A.",
-            # "model": self._product.get_key("SN"),
-            # "sw_version": "mod: "
-            # + str(self._product.get_key("MOD"))
-            # + " v"
-            # + str(self._product.get_key("VER"))
-            # + " "
-            # + self._product.get_key("FWDATE"),
-            # "via_device": (DOMAIN, self._product.hub_id),
         }
 
     @property
@@ -147,7 +136,7 @@ class DemoCover(CoverEntity):
         """Flag supported features."""
         if self._supported_features is not None:
             return self._supported_features
-        return super().supported_features
+        # return super().supported_features
 
     async def async_close_cover(self, **kwargs):
         """Close the cover."""

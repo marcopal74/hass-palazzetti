@@ -3,7 +3,6 @@ import json
 from homeassistant.const import (
     TEMP_CELSIUS,
     ATTR_UNIT_OF_MEASUREMENT,
-    ATTR_FRIENDLY_NAME,
     DEVICE_DEFAULT_NAME,
 )
 
@@ -17,7 +16,7 @@ async def async_setup_entry(hass, config_entry, add_entities):
     product = hass.data[DOMAIN][config_entry.entry_id]
 
     _config = product.get_data_config_json()
-    _data = product.get_data_states()
+    # _data = product.get_data_states()
 
     status_icon = "mdi:fireplace-off"
     if product.get_key("STATUS") == 6:
@@ -178,15 +177,6 @@ class SensorX(Entity):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._id)},
-            # "name": self._product.get_key("LABEL"),
-            # "manufacturer": "Palazzetti Lelio S.p.A.",
-            # "model": self._product.get_key("SN"),
-            # "sw_version": "mod: "
-            # + str(self._product.get_key("MOD"))
-            # + " v"
-            # + str(self._product.get_key("VER"))
-            # + " "
-            # + self._product.get_key("FWDATE"),
         }
 
     def update(self):
@@ -203,8 +193,6 @@ class SensorX(Entity):
         attributes = json.loads("{}")
         attributes.update(
             {
-                # "name": self._id + "_" + self._key.lower(),
-                # ATTR_FRIENDLY_NAME: self._fname,
                 ATTR_UNIT_OF_MEASUREMENT: self._unit,
             }
         )
@@ -255,16 +243,6 @@ class SensorState(Entity):
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._id)},
-            # "name": self._product.get_key("LABEL"),
-            # "manufacturer": "Palazzetti Lelio S.p.A.",
-            # "model": self._product.get_key("SN"),
-            # "sw_version": "mod: "
-            # + str(self._product.get_key("MOD"))
-            # + " v"
-            # + str(self._product.get_key("VER"))
-            # + " "
-            # + self._product.get_key("FWDATE"),
-            # "via_device": (DOMAIN, self._product.hub_id),
         }
 
     def update(self):
@@ -286,7 +264,12 @@ class SensorState(Entity):
         """Return the device state attributes."""
         # attributes = super().device_state_attributes
         _config_attrib = self._product.get_data_config_json()
+        # attributes.update(_config_attrib)
+
         # _data_attrib = self._product.get_data_json()
         # _all_attrib = _config_attrib.copy()
         # _all_attrib.update(_data_attrib)
+
+        # questo è un JSON
+        # myattrib = json.dumps(_config_attrib)
         return _config_attrib

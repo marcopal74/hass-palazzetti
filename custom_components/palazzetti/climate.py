@@ -22,7 +22,7 @@ from homeassistant.components.climate.const import (
 from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS, TEMP_FAHRENHEIT
 from .palazzetti_sdk_local_api import exceptions as palexcept
 import logging
-from .const import DOMAIN, DATA_PALAZZETTI
+from .const import DOMAIN
 
 SUPPORT_FLAGS = 0
 _LOGGER = logging.getLogger(__name__)
@@ -31,8 +31,8 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the Demo climate devices."""
     climate_id = config.unique_id
+    product = hass.data[DOMAIN][config.entry_id]
     # _config = config.data["stove"]
-    DATA_DOMAIN = DATA_PALAZZETTI + climate_id
     # if not _config["_flag_has_setpoint"]:
     # if not hass.data[DATA_DOMAIN].get_data_config_json()["_flag_has_setpoint"]:
     #    return
@@ -47,6 +47,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     async_add_entities(
         [
             PalClimate(
+                product,
                 unique_id=climate_id,
                 name=hass.data[DATA_DOMAIN].get_key("LABEL"),
                 target_temperature=hass.data[DATA_DOMAIN].get_key("SETP"),
@@ -80,6 +81,7 @@ class PalClimate(ClimateEntity):
 
     def __init__(
         self,
+        product,
         unique_id,
         name,
         target_temperature,
@@ -99,6 +101,7 @@ class PalClimate(ClimateEntity):
         preset_modes=None,
     ):
         """Initialize the climate device."""
+        self._product = product
         self._id = unique_id
         self._unique_id = unique_id + "_climate"
         self._name = name
@@ -135,22 +138,10 @@ class PalClimate(ClimateEntity):
         self._target_temperature_high = target_temp_high
         self._target_temperature_low = target_temp_low
 
-        self.DATA_DOMAIN = DATA_PALAZZETTI + self._id
-
     @property
     def device_info(self):
         return {
             "identifiers": {(DOMAIN, self._id)},
-            # "name": self.hass.data[self.DATA_DOMAIN].get_key("LABEL"),
-            # "manufacturer": "Palazzetti Lelio S.p.A.",
-            # "model": self.hass.data[self.DATA_DOMAIN].get_key("SN"),
-            # "sw_version": "mod: "
-            # + str(self.hass.data[self.DATA_DOMAIN].get_key("MOD"))
-            # + " v"
-            # + str(self.hass.data[self.DATA_DOMAIN].get_key("VER"))
-            # + " "
-            # + self.hass.data[self.DATA_DOMAIN].get_key("FWDATE"),
-            # "via_device": (DOMAIN, self.hass.data[self.DATA_DOMAIN].hub_id),
         }
 
     @property
@@ -186,14 +177,12 @@ class PalClimate(ClimateEntity):
     @property
     def current_temperature(self):
         """Return the current temperature."""
-        return self.hass.data[self.DATA_DOMAIN].get_data_config_json()[
-            "_value_temp_main"
-        ]
+        return self._product.get_data_config_json()["_value_temp_main"]
 
     @property
     def target_temperature(self):
         """Return the temperature we try to reach."""
-        return self.hass.data[self.DATA_DOMAIN].get_key("SETP")
+        return self._product.get_key("SETP")
 
     @property
     def target_temperature_high(self):
@@ -208,16 +197,12 @@ class PalClimate(ClimateEntity):
     @property
     def min_temp(self):
         """Return the lowbound target temperature we try to reach."""
-        return self.hass.data[self.DATA_DOMAIN].get_data_config_json()[
-            "_value_setpoint_min"
-        ]
+        return self._product.get_data_config_json()["_value_setpoint_min"]
 
     @property
     def max_temp(self):
         """Return the lowbound target temperature we try to reach."""
-        return self.hass.data[self.DATA_DOMAIN].get_data_config_json()[
-            "_value_setpoint_max"
-        ]
+        return self._product.get_data_config_json()["_value_setpoint_max"]
 
     @property
     def current_humidity(self):
@@ -232,9 +217,7 @@ class PalClimate(ClimateEntity):
     @property
     def hvac_action(self):
         """Return current operation ie. heat, cool, idle."""
-        if self.hass.data[self.DATA_DOMAIN].get_data_config_json()[
-            "_value_product_is_on"
-        ]:
+        if self._product.get_data_config_json()["_value_product_is_on"]:
             currstate = CURRENT_HVAC_HEAT
         else:
             currstate = "idle"
@@ -243,9 +226,7 @@ class PalClimate(ClimateEntity):
     @property
     def hvac_mode(self):
         """Return hvac target hvac state."""
-        if self.hass.data[self.DATA_DOMAIN].get_data_config_json()[
-            "_value_product_is_on"
-        ]:
+        if self._product.get_data_config_json()["_value_product_is_on"]:
             currstate = HVAC_MODE_HEAT
         else:
             currstate = HVAC_MODE_OFF
@@ -298,7 +279,7 @@ class PalClimate(ClimateEntity):
             _oldtemp = self._target_temperature
             _newtemp = kwargs.get(ATTR_TEMPERATURE)
             try:
-                await self.hass.data[self.DATA_DOMAIN].async_set_setpoint(int(_newtemp))
+                await self._product.async_set_setpoint(int(_newtemp))
             except:
                 self._target_temperature = _oldtemp
                 self.async_write_ha_state()
@@ -325,7 +306,7 @@ class PalClimate(ClimateEntity):
         """Set new operation mode."""
         if hvac_mode == HVAC_MODE_OFF:
             try:
-                self.hass.data[self.DATA_DOMAIN].power_off()
+                self._product.power_off()
                 self._hvac_mode = hvac_mode
                 self.async_write_ha_state()
             except palexcept.InvalidStateTransitionError:
@@ -336,7 +317,7 @@ class PalClimate(ClimateEntity):
 
         elif hvac_mode == HVAC_MODE_HEAT:
             try:
-                self.hass.data[self.DATA_DOMAIN].power_on()
+                self._product.power_on()
                 self._hvac_mode = hvac_mode
                 self.async_write_ha_state()
             except palexcept.InvalidStateTransitionError:
