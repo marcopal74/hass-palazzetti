@@ -37,7 +37,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     # if not hass.data[DATA_DOMAIN].get_data_config_json()["_flag_has_setpoint"]:
     #    return
 
-    if hass.data[DATA_DOMAIN].get_data_config_json()["_value_product_is_on"]:
+    if product.get_data_config_json()["_value_product_is_on"]:
         currstate = HVAC_MODE_HEAT
         curraction = CURRENT_HVAC_HEAT
     else:
@@ -49,13 +49,11 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
             PalClimate(
                 product,
                 unique_id=climate_id,
-                name=hass.data[DATA_DOMAIN].get_key("LABEL"),
-                target_temperature=hass.data[DATA_DOMAIN].get_key("SETP"),
+                name=product.get_key("LABEL"),
+                target_temperature=product.get_key("SETP"),
                 unit_of_measurement=TEMP_CELSIUS,
                 preset=None,
-                current_temperature=hass.data[DATA_DOMAIN].get_data_config_json()[
-                    "_value_temp_main"
-                ],
+                current_temperature=product.get_data_config_json()["_value_temp_main"],
                 fan_mode=None,
                 target_humidity=None,
                 current_humidity=None,

@@ -143,6 +143,7 @@ class SensorX(Entity):
         self._product = product
         self._state = None
         self._id = product.product_id
+        self._online = product.online
         self._unit = unit
         self._key = key_val
         self._icon = icon
@@ -171,7 +172,7 @@ class SensorX(Entity):
     @property
     def available(self) -> bool:
         """Return True if the product is available."""
-        return self._product.online
+        return self._online
 
     @property
     def device_info(self):
@@ -179,24 +180,22 @@ class SensorX(Entity):
             "identifiers": {(DOMAIN, self._id)},
         }
 
+    @property
+    def device_state_attributes(self):
+        """Return the device state attributes."""
+        # attributes = super().device_state_attributes
+        # attributes = json.loads("{}")
+        attributes = {ATTR_UNIT_OF_MEASUREMENT: self._unit}
+
+        return attributes
+
     def update(self):
         """Fetch new state data for the sensor.
 
         This is the only method that should fetch new data for Home Assistant.
         """
+        self._online = self._product.online
         self._state = self._product.get_key(self._key)
-
-    @property
-    def device_state_attributes(self):
-        """Return the device state attributes."""
-        # attributes = super().device_state_attributes
-        attributes = json.loads("{}")
-        attributes.update(
-            {
-                ATTR_UNIT_OF_MEASUREMENT: self._unit,
-            }
-        )
-        return attributes
 
 
 class SensorState(Entity):

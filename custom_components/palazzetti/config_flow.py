@@ -34,6 +34,8 @@ async def validate_input(_user_host):
 
         myconfig["config"] = myapi.get_data_config_json()
         myconfig["data"] = myapi.get_data_json()
+        myconfig["hub_id"] = myapi.hub_id
+        myconfig["hub_isbiocc"] = myapi.hub_isbiocc
 
         if "SN" in myconfig["data"]:
             _sn = myconfig["data"]["SN"]
@@ -83,6 +85,8 @@ class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             info = await validate_input(self.host)
 
             user_input["stove"] = info["config"]
+            user_input["hub_id"] = info["hub_id"]
+            user_input["hub_isbiocc"] = info["hub_isbiocc"]
             print("post-validate input")
             if info["data"]["SN"]:
                 # check if device is already registered using SN or LT_MAC if no SN available
