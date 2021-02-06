@@ -4,6 +4,7 @@ from homeassistant.components.binary_sensor import (
     DEVICE_CLASS_MOTION,
     BinarySensorEntity,
 )
+from .palazzetti_sdk_local_api import PalDiscovery
 from . import DOMAIN
 
 
@@ -176,4 +177,24 @@ class PalBinarySensor(BinarySensorEntity):
 
     # async def async_update(self):
     #     """Fetch new state data for the sensor.
-    #     print("async binary update")
+
+
+#
+#     This is the only method that should fetch new data for Home Assistant.
+#     """
+#     if self._product == None and self._key == "hub":
+#         check_api = PalDiscovery()
+#         check_ip = await check_api.checkIP(self._myhost)
+#
+#         if check_ip:
+#             print("IP now reachable")
+#             # clean up all
+#             # myplatform = get_platform(hass, "binary_sensor")
+#             # if myplatform.entities and entry.state != "not_loaded":
+#             # await hass.config_entries.async_forward_entry_unload(entry, "binary_sensor")
+#             # re launch setup
+#             await self.hass.config_entries.async_reload(self._entryid)
+#         else:
+#             print("IP not reachable")
+#     else:
+#         print("binary update")

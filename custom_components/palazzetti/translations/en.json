@@ -21,5 +21,11 @@
             "cannot_connect": "IP not corresponding to a ConnectionBox",
             "host_exists": "ConnBox already configured"
         }
+    },
+    "device_automation": {
+        "trigger_type": {
+            "turned_off": "{entity_name} turned off",
+            "error_on": "{entity_name} turned on"
+        }
     }
 }

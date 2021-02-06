@@ -155,20 +155,20 @@ class MyNumber(InputNumber):
             "identifiers": {(DOMAIN, self._id)},
         }
 
-    async def async_added_to_hass(self):
-        """Run when entity about to be added to hass."""
-        await super().async_added_to_hass()
-        if self._current_value is not None:
-            return
+    # async def async_added_to_hass(self):
+    #     """Run when entity about to be added to hass."""
+    #     await super().async_added_to_hass()
+    #     if self._current_value is not None:
+    #         return
 
-        state = await self.async_get_last_state()
-        value = state and float(state.state)
+    #     state = await self.async_get_last_state()
+    #     value = state and float(state.state)
 
-        # Check against None because value can be 0
-        if value is not None and self._minimum <= value <= self._maximum:
-            self._current_value = value
-        else:
-            self._current_value = self._minimum
+    #     # Check against None because value can be 0
+    #     if value is not None and self._minimum <= value <= self._maximum:
+    #         self._current_value = value
+    #     else:
+    #         self._current_value = self._minimum
 
     async def async_set_value(self, value):
         """Set new value."""
@@ -188,10 +188,10 @@ class MyNumber(InputNumber):
             await self._product.async_set_fan(int(self._type[-1:]), int(num_value))
         self.async_write_ha_state()
 
-    async def async_increment(self):
-        """Increment value."""
-        await self.async_set_value(min(self._current_value + self._step, self._maximum))
+    # async def async_increment(self):
+    #     """Increment value."""
+    #     await self.async_set_value(min(self._current_value + self._step, self._maximum))
 
-    async def async_decrement(self):
-        """Decrement value."""
-        await self.async_set_value(max(self._current_value - self._step, self._minimum))
+    # async def async_decrement(self):
+    #     """Decrement value."""
+    #     await self.async_set_value(max(self._current_value - self._step, self._minimum))

@@ -16,9 +16,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     myentities = []
 
-    myentities.append(
-        BaseSwitch(product, "ON/OFF", False, "mdi:power", device_class="outlet")
-    )
+    if not product.hub_isbiocc:
+        myentities.append(
+            BaseSwitch(product, "ON/OFF", False, "mdi:power", device_class="outlet")
+        )
 
     # assumes that 0 speed fan exists also if minimum fan set of the main fan is 0
     fan = 1
@@ -29,7 +30,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         myentities.append(
             ZeroSpeed(product, "Silent", False, "mdi:fan-off", device_class="outlet")
         )
-
     async_add_entities(myentities)
 
 
