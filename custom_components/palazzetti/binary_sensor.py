@@ -99,6 +99,18 @@ class PalBinarySensor(BinarySensorEntity):
         self._mydevice = mydevice
         self._hubid = hubid
 
+    async def async_added_to_hass(self):
+        """Run when this Entity has been added to HA."""
+        # Sensors should also register callbacks to HA when their state changes
+        if self._product is not None:
+            self._product.register_callback(self.async_write_ha_state)
+
+    async def async_will_remove_from_hass(self):
+        """Entity being removed from hass."""
+        # The opposite of async_added_to_hass. Remove any registered call backs here.
+        if self._product is not None:
+            self._product.remove_callback(self.async_write_ha_state)
+
     @property
     def device_info(self):
         if self._product == None:

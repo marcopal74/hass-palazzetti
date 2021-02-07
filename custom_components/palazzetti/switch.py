@@ -25,7 +25,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     fan = 1
     if product.get_data_config_json()["_flag_is_air"] and (
         product.get_data_config_json()["_flag_has_fan_zero_speed_fan"]
-        or product.get_data_config_json()["_value_fan_limits"][((fan - 1) * 2)] == 0
+        # or product.get_data_config_json()["_value_fan_limits"][((fan - 1) * 2)] == 0
     ):
         myentities.append(
             ZeroSpeed(product, "Silent", False, "mdi:fan-off", device_class="outlet")
@@ -214,6 +214,18 @@ class ZeroSpeed(SwitchEntity):
         else:
             print("Errore: non può essere spento")
             _LOGGER.warning("Error cannot change state")
+
+    async def async_added_to_hass(self):
+        """Run when this Entity has been added to HA."""
+        # Sensors should also register callbacks to HA when their state changes
+        if self._product is not None:
+            self._product.register_callback(self.async_write_ha_state)
+
+    async def async_will_remove_from_hass(self):
+        """Entity being removed from hass."""
+        # The opposite of async_added_to_hass. Remove any registered call backs here.
+        if self._product is not None:
+            self._product.remove_callback(self.async_write_ha_state)
 
 
 class CannotConnect(hae.Unauthorized):

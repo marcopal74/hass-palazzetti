@@ -1,5 +1,6 @@
 """Platform for sensor integration."""
 import json
+from datetime import datetime
 from homeassistant.const import (
     TEMP_CELSIUS,
     ATTR_UNIT_OF_MEASUREMENT,
@@ -162,7 +163,10 @@ class SensorX(Entity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        return self._state
+        # now = datetime.now()
+        # timestamp = datetime.timestamp(datetime.now())
+        # print(f"sensorX print state: {self._key} - {timestamp}")
+        return self._product.get_key(self._key)
 
     @property
     def icon(self):
@@ -189,11 +193,28 @@ class SensorX(Entity):
 
         return attributes
 
-    def update(self):
-        """Fetch new state data for the sensor.
+    async def async_added_to_hass(self):
+        """Run when this Entity has been added to HA."""
+        # Sensors should also register callbacks to HA when their state changes
+        if self._product is not None:
+            self._product.register_callback(self.async_write_ha_state)
 
-        This is the only method that should fetch new data for Home Assistant.
-        """
+    async def async_will_remove_from_hass(self):
+        """Entity being removed from hass."""
+        # The opposite of async_added_to_hass. Remove any registered call backs here.
+        if self._product is not None:
+            self._product.remove_callback(self.async_write_ha_state)
+
+    # def update(self):
+    #     """Fetch new state data for the sensor.
+    #
+    #     This is the only method that should fetch new data for Home Assistant.
+    #     """
+    #     print(f"sensorX Update: {self._key}")
+    #     self._online = self._product.online
+    #     self._state = self._product.get_key(self._key)
+
+    async def async_update(self):
         self._online = self._product.online
         self._state = self._product.get_key(self._key)
 
@@ -226,7 +247,7 @@ class SensorState(Entity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        return self._state
+        return self._product.get_data_states()[self._key]
 
     @property
     def icon(self):
@@ -244,20 +265,6 @@ class SensorState(Entity):
             "identifiers": {(DOMAIN, self._id)},
         }
 
-    def update(self):
-        """Fetch new state data for the sensor.
-
-        This is the only method that should fetch new data for Home Assistant.
-        """
-        status_icon = "mdi:fireplace-off"
-        if self._product.get_key("STATUS") == 6:
-            status_icon = "mdi:fireplace"
-        elif self._product.get_data_config_json()["_flag_error_status"]:
-            status_icon = "mdi:alert"
-
-        self._icon = status_icon
-        self._state = self._product.get_data_states()[self._key]
-
     @property
     def device_state_attributes(self):
         """Return the device state attributes."""
@@ -272,3 +279,30 @@ class SensorState(Entity):
         # questo è un JSON
         # myattrib = json.dumps(_config_attrib)
         return _config_attrib
+
+    async def async_added_to_hass(self):
+        """Run when this Entity has been added to HA."""
+        # Sensors should also register callbacks to HA when their state changes
+        if self._product is not None:
+            self._product.register_callback(self.async_write_ha_state)
+
+    async def async_will_remove_from_hass(self):
+        """Entity being removed from hass."""
+        # The opposite of async_added_to_hass. Remove any registered call backs here.
+        if self._product is not None:
+            self._product.remove_callback(self.async_write_ha_state)
+
+    def update(self):
+        """Fetch new state data for the sensor.
+
+        This is the only method that should fetch new data for Home Assistant.
+        """
+        # print("sensorState Update")
+        status_icon = "mdi:fireplace-off"
+        if self._product.get_key("STATUS") == 6:
+            status_icon = "mdi:fireplace"
+        elif self._product.get_data_config_json()["_flag_error_status"]:
+            status_icon = "mdi:alert"
+
+        self._icon = status_icon
+        self._state = self._product.get_data_states()[self._key]

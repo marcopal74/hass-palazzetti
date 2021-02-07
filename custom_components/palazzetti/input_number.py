@@ -126,7 +126,19 @@ class MyNumber(InputNumber):
     @property
     def should_poll(self):
         """If entity should be polled."""
-        return True
+        return False
+
+    async def async_added_to_hass(self):
+        """Run when this Entity has been added to HA."""
+        # Sensors should also register callbacks to HA when their state changes
+        if self._product is not None:
+            self._product.register_callback(self.async_write_ha_state)
+
+    async def async_will_remove_from_hass(self):
+        """Entity being removed from hass."""
+        # The opposite of async_added_to_hass. Remove any registered call backs here.
+        if self._product is not None:
+            self._product.remove_callback(self.async_write_ha_state)
 
     @property
     def available(self) -> bool:
@@ -148,6 +160,52 @@ class MyNumber(InputNumber):
             return self._product.get_key("F2L")
         elif self._type == "fan3":
             return self._product.get_key("F2L")
+
+    @property
+    def _minimum(self) -> float:
+        """Return minimum allowed value."""
+        if self._type == "power":
+            return 1.0
+        elif self._type == "setpoint":
+            return self._product.get_data_config_json()["_value_setpoint_min"]
+        elif self._type == "fan1":
+            fan = 1
+            return self._product.get_data_config_json()["_value_fan_limits"][
+                ((fan - 1) * 2)
+            ]
+        elif self._type == "fan2":
+            fan = 2
+            return self._product.get_data_config_json()["_value_fan_limits"][
+                ((fan - 1) * 2)
+            ]
+        elif self._type == "fan3":
+            fan = 3
+            return self._product.get_data_config_json()["_value_fan_limits"][
+                ((fan - 1) * 2)
+            ]
+
+    @property
+    def _maximum(self) -> float:
+        """Return maximum allowed value."""
+        if self._type == "power":
+            return 5.0
+        elif self._type == "setpoint":
+            return self._product.get_data_config_json()["_value_setpoint_max"]
+        elif self._type == "fan1":
+            fan = 1
+            return self._product.get_data_config_json()["_value_fan_limits"][
+                (((fan - 1) * 2) + 1)
+            ]
+        elif self._type == "fan2":
+            fan = 2
+            return self._product.get_data_config_json()["_value_fan_limits"][
+                (((fan - 1) * 2) + 1)
+            ]
+        elif self._type == "fan3":
+            fan = 3
+            return self._product.get_data_config_json()["_value_fan_limits"][
+                (((fan - 1) * 2) + 1)
+            ]
 
     @property
     def device_info(self):
