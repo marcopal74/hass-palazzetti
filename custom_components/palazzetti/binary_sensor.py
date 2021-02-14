@@ -75,6 +75,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 class PalBinarySensor(BinarySensorEntity):
     """representation of a Demo binary sensor."""
 
+    should_poll = False
+
     def __init__(
         self,
         myid,
@@ -144,10 +146,10 @@ class PalBinarySensor(BinarySensorEntity):
         """Return the class of this sensor."""
         return self._sensor_type
 
-    @property
-    def should_poll(self):
-        """No polling needed for a demo binary sensor."""
-        return self._product is not None
+    # @property
+    # def should_poll(self):
+    #     """No polling needed for a demo binary sensor."""
+    #     return self._product is not None
 
     @property
     def name(self):
@@ -186,6 +188,9 @@ class PalBinarySensor(BinarySensorEntity):
             return cbox_attrib
 
         return _prod_attrib
+
+    async def async_update(self):
+        print(f"binary_sensor PalBinarySensor update {self._key}")
 
     # async def async_update(self):
     #     """Fetch new state data for the sensor.

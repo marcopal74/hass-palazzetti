@@ -137,6 +137,8 @@ async def async_setup_entry(hass, config_entry, add_entities):
 class SensorX(Entity):
     """Representation of a sensor."""
 
+    should_poll = False
+
     def __init__(
         self, product, key_val, unit=None, icon=None, friendly_name=None, mydevice=None
     ):
@@ -215,12 +217,15 @@ class SensorX(Entity):
     #     self._state = self._product.get_key(self._key)
 
     async def async_update(self):
+        print(f"sensorX Update: {self._key}")
         self._online = self._product.online
         self._state = self._product.get_key(self._key)
 
 
 class SensorState(Entity):
     """Representation of a sensor."""
+
+    should_poll = False
 
     def __init__(
         self, product, key_val, unit=None, icon=None, friendly_name=None, mydevice=None
@@ -297,7 +302,7 @@ class SensorState(Entity):
 
         This is the only method that should fetch new data for Home Assistant.
         """
-        # print("sensorState Update")
+        print("sensorState Update")
         status_icon = "mdi:fireplace-off"
         if self._product.get_key("STATUS") == 6:
             status_icon = "mdi:fireplace"

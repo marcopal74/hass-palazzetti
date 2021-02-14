@@ -59,7 +59,7 @@ class BaseSwitch(SwitchEntity):
     @property
     def should_poll(self):
         """No polling needed for a demo switch."""
-        return True
+        return False
 
     @property
     def available(self) -> bool:
@@ -125,6 +125,21 @@ class BaseSwitch(SwitchEntity):
             print("Errore: non può essere spento")
             _LOGGER.warning("Error cannot change state")
 
+    async def async_added_to_hass(self):
+        """Run when this Entity has been added to HA."""
+        # Sensors should also register callbacks to HA when their state changes
+        if self._product is not None:
+            self._product.register_callback(self.async_write_ha_state)
+
+    async def async_will_remove_from_hass(self):
+        """Entity being removed from hass."""
+        # The opposite of async_added_to_hass. Remove any registered call backs here.
+        if self._product is not None:
+            self._product.remove_callback(self.async_write_ha_state)
+
+    async def async_update(self):
+        print(f"switch BaseSwitch Update")
+
 
 class ZeroSpeed(SwitchEntity):
     """Representation of a demo switch."""
@@ -152,7 +167,7 @@ class ZeroSpeed(SwitchEntity):
     @property
     def should_poll(self):
         """No polling needed for a demo switch."""
-        return True
+        return False
 
     @property
     def available(self) -> bool:
@@ -226,6 +241,9 @@ class ZeroSpeed(SwitchEntity):
         # The opposite of async_added_to_hass. Remove any registered call backs here.
         if self._product is not None:
             self._product.remove_callback(self.async_write_ha_state)
+
+    async def async_update(self):
+        print(f"switch ZeroSpeed Update")
 
 
 class CannotConnect(hae.Unauthorized):

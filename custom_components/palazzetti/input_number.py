@@ -5,7 +5,8 @@ from .helper import get_platform
 
 
 async def create_input_number(hass, entry):
-    _config = entry.data["stove"]
+    # _config = entry.data["stove"]
+    _config = None
     product = None
     try:
         product = hass.data[DOMAIN][entry.entry_id]
@@ -130,6 +131,7 @@ class MyNumber(InputNumber):
 
     async def async_added_to_hass(self):
         """Run when this Entity has been added to HA."""
+        await super().async_added_to_hass()
         # Sensors should also register callbacks to HA when their state changes
         if self._product is not None:
             self._product.register_callback(self.async_write_ha_state)
@@ -253,3 +255,5 @@ class MyNumber(InputNumber):
     # async def async_decrement(self):
     #     """Decrement value."""
     #     await self.async_set_value(max(self._current_value - self._step, self._minimum))
+    async def async_update(self):
+        print(f"input_number Update {self._type}")

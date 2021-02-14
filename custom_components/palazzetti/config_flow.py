@@ -3,7 +3,7 @@ import logging
 import re
 import voluptuous as vol
 from homeassistant import config_entries, exceptions
-from .palazzetti_sdk_local_api import Palazzetti
+from .palazzetti_sdk_local_api import Hub, Palazzetti
 
 from . import DOMAIN  # pylint:disable=unused-import
 
@@ -14,7 +14,7 @@ DATA_SCHEMA = vol.Schema({"host": str})
 STEP_USER_DATA_SCHEMA = vol.Schema({"host": str})
 
 
-async def validate_input(_user_host):
+async def validate_input2(_user_host):
     """chech if user host is a ConnectionBox IP"""
     from .palazzetti_sdk_local_api import PalDiscovery
 
@@ -63,6 +63,21 @@ async def validate_input(_user_host):
     # return False
 
 
+async def validate_input(_user_host):
+    """chech if user host is a ConnectionBox IP"""
+
+    myhub = Hub(_user_host)
+    myconfig = {"hub_id": myhub.hub_id, "host": _user_host}
+
+    await myhub.async_update()
+    if myhub.online:
+        myconfig["hub_isbiocc"] = myhub.hub_isbiocc
+        myconfig["label"] = myhub.label
+        return myconfig
+
+    raise CannotConnect
+
+
 class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Palazzetti."""
 
@@ -84,23 +99,20 @@ class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.host = user_input["host"]
             info = await validate_input(self.host)
 
-            user_input["stove"] = info["config"]
+            # user_input["stove"] = info["config"]
             user_input["hub_id"] = info["hub_id"]
             user_input["hub_isbiocc"] = info["hub_isbiocc"]
             print("post-validate input")
-            if info["data"]["SN"]:
-                # check if device is already registered using SN or LT_MAC if no SN available
-                check_exists = await self.async_set_unique_id(
-                    "plz_" + info["data"]["SN"].lower()
-                )
-                if check_exists:
-                    return self.async_abort(reason="host_exists")
+            check_exists = await self.async_set_unique_id(info["hub_id"].lower())
 
-                return self.async_create_entry(
-                    title=info["data"]["LABEL"],
-                    data=user_input,
-                    # description="Descrizione a caso",
-                )
+            if check_exists:
+                return self.async_abort(reason="host_exists")
+
+            return self.async_create_entry(
+                title=info["label"],
+                data=info,
+            )
+
         except CannotConnect:
             _LOGGER.error("Error connecting to the ConnBox at %s", self.host)
             errors["base"] = "cannot_connect"

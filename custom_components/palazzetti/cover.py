@@ -93,7 +93,7 @@ class PalCover(CoverEntity):
     @property
     def should_poll(self):
         """No polling needed for a demo cover."""
-        return True
+        return False
 
     @property
     def current_cover_position(self):
@@ -155,3 +155,19 @@ class PalCover(CoverEntity):
 
         self._is_opening = True
         self.async_write_ha_state()
+
+    async def async_added_to_hass(self):
+        """Run when this Entity has been added to HA."""
+        # Sensors should also register callbacks to HA when their state changes
+        if self._product is not None:
+            self._product.register_callback(self.async_write_ha_state)
+
+    async def async_will_remove_from_hass(self):
+        """Entity being removed from hass."""
+        # The opposite of async_added_to_hass. Remove any registered call backs here.
+        if self._product is not None:
+            self._product.remove_callback(self.async_write_ha_state)
+
+    async def async_update(self):
+        await super().async_update()
+        print(f"cover Update")
