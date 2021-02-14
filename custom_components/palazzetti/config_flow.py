@@ -3,7 +3,7 @@ import logging
 import re
 import voluptuous as vol
 from homeassistant import config_entries, exceptions
-from .palazzetti_sdk_local_api import Hub, Palazzetti
+from .palazzetti_sdk_local_api import Hub
 
 from . import DOMAIN  # pylint:disable=unused-import
 
@@ -12,55 +12,6 @@ _LOGGER = logging.getLogger(__name__)
 # TODO adjust the data schema to the data that you need
 DATA_SCHEMA = vol.Schema({"host": str})
 STEP_USER_DATA_SCHEMA = vol.Schema({"host": str})
-
-
-async def validate_input2(_user_host):
-    """chech if user host is a ConnectionBox IP"""
-    from .palazzetti_sdk_local_api import PalDiscovery
-
-    check_api = PalDiscovery()
-    check_ip = await check_api.checkIP(_user_host)
-
-    if check_ip:
-        myconfig = {}
-        print("check-ip is OK")
-        # IP is a Connection Box
-
-        # get static data
-        myapi = Palazzetti(_user_host)
-        print("object is created")
-        await myapi.async_get_stdt()
-        # await myapi.async_get_alls()
-
-        myconfig["config"] = myapi.get_data_config_json()
-        myconfig["data"] = myapi.get_data_json()
-        myconfig["hub_id"] = myapi.hub_id
-        myconfig["hub_isbiocc"] = myapi.hub_isbiocc
-
-        if "SN" in myconfig["data"]:
-            _sn = myconfig["data"]["SN"]
-            if re.search("[a-zA-Z]{2}[0-9]{7}[a-zA-Z0-9]{9}[0-9]{5}", _sn) == False:
-                # _newsn = (
-                #    "LT0000000"
-                #    + str(_user_host).replace(".", "")
-                #    + "00000000000000000000000"
-                # )
-                # await myapi.async_set_sn(_newsn[:23])
-                # return false: SN not matching RegEx
-                raise InvalidSN
-        elif "MAC" in myconfig["data"]:
-            _sn = "LT" + myconfig["data"]["MAC"].replace(":", "")
-        else:
-            raise InvalidSN
-
-        # return static data
-        myconfig["data"].update({"SN": _sn})
-        return myconfig
-
-    raise CannotConnect
-
-    # return false: IP not found
-    # return False
 
 
 async def validate_input(_user_host):
