@@ -12,21 +12,19 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the Demo config entry."""
-    product = hass.data[DOMAIN][config_entry.entry_id]
+    myhub = hass.data[DOMAIN][config_entry.entry_id]
+    product = myhub.product
+    _config = product.get_data_config_json()
 
     myentities = []
 
-    if not product.hub_isbiocc:
+    # no power switch is if BioCC despite config data
+    if not myhub.hub_isbiocc:
         myentities.append(
             BaseSwitch(product, "ON/OFF", False, "mdi:power", device_class="outlet")
         )
 
-    # assumes that 0 speed fan exists also if minimum fan set of the main fan is 0
-    fan = 1
-    if product.get_data_config_json()["_flag_is_air"] and (
-        product.get_data_config_json()["_flag_has_fan_zero_speed_fan"]
-        # or product.get_data_config_json()["_value_fan_limits"][((fan - 1) * 2)] == 0
-    ):
+    if _config["_flag_is_air"] and (_config["_flag_has_fan_zero_speed_fan"]):
         myentities.append(
             ZeroSpeed(product, "Silent", False, "mdi:fan-off", device_class="outlet")
         )
@@ -49,7 +47,7 @@ class BaseSwitch(SwitchEntity):
 
     @property
     def device_info(self):
-        return {"identifiers": {(DOMAIN, self._id)}}
+        return {"identifiers": {(DOMAIN, self._product.product_id)}}
 
     @property
     def unique_id(self):
@@ -157,7 +155,7 @@ class ZeroSpeed(SwitchEntity):
 
     @property
     def device_info(self):
-        return {"identifiers": {(DOMAIN, self._id)}}
+        return {"identifiers": {(DOMAIN, self._product.product_id)}}
 
     @property
     def unique_id(self):

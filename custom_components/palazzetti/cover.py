@@ -12,7 +12,7 @@ from .const import DOMAIN
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
-    product = hass.data[DOMAIN][config_entry.entry_id]
+    product = hass.data[DOMAIN][config_entry.entry_id].product
     myposition = product.get_key("DOOR")
     hassposition = 0
     if myposition == 3:
@@ -72,7 +72,7 @@ class PalCover(CoverEntity):
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, self._id)},
+            "identifiers": {(DOMAIN, self._product.product_id)},
         }
 
     @property

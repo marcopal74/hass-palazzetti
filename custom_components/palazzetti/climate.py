@@ -31,7 +31,7 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the Demo climate devices."""
     climate_id = config.unique_id
-    product = hass.data[DOMAIN][config.entry_id]
+    product = hass.data[DOMAIN][config.entry_id].product
     # _config = config.data["stove"]
     # if not _config["_flag_has_setpoint"]:
     # if not hass.data[DATA_DOMAIN].get_data_config_json()["_flag_has_setpoint"]:
@@ -139,7 +139,7 @@ class PalClimate(ClimateEntity):
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, self._id)},
+            "identifiers": {(DOMAIN, self._product.product_id)},
         }
 
     @property

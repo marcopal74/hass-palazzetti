@@ -246,8 +246,6 @@ class PalDiscovery(object):
 class Hub(object):
     """Hub gateway HTTP class"""
 
-    response_json = {"icon": "mdi:link-off"}
-
     def __init__(self, host):
         _LOGGER.debug("Init of class hub")
 
@@ -262,6 +260,7 @@ class Hub(object):
         self._myclimate_2 = None
         self._myclimate_3 = None
         self._shape = None
+        self.response_json = {"icon": "mdi:link-off"}
 
     async def async_update(self, discovery=False):
         _response = await self.paldiscovery.checkIP(self.ip, response=True)
@@ -274,7 +273,7 @@ class Hub(object):
             return
 
         if discovery:
-            self._product = Palazzetti(self.ip)
+            self._product = Palazzetti(self.ip, self.unique_id + "_prd")
             await self._product.async_get_stdt()
             await self._product.async_get_alls()
             await self._product.async_get_cntr()
@@ -289,8 +288,8 @@ class Hub(object):
             self.response_json = _response
 
         self.online = True
-        # print(f"Attuale JSON: {self.response_json}")
         self.response_json.update({"icon": "mdi:link"})
+        # print(f"Attuale JSON: {self.response_json}")
         await self.publish_updates()
 
     async def async_get_stdt(self):
@@ -342,16 +341,19 @@ class Hub(object):
     @property
     def hub_isbiocc(self) -> bool:
         """Return True if hub is BioCC else is ConnBox"""
-        # if "CBTYPE" not in self.response_json:
-        if not self.response_json:
+        if "CBTYPE" not in self.response_json:
+            # if not self.response_json:
             return
-        return self.response_json["CBTYPE"] == "ET4W"
+        return (
+            self.response_json["CBTYPE"] == "ET4W"
+            or self.response_json["CBTYPE"] == "VxxET"
+        )
 
     @property
-    def label(self) -> bool:
+    def label(self) -> str:
         """Return True if hub is BioCC else is ConnBox"""
-        # if "CBTYPE" not in self.response_json:
-        if not self.response_json:
+        if "LABEL" not in self.response_json:
+            # if not self.response_json:
             return
         return self.response_json["LABEL"]
 
@@ -517,6 +519,7 @@ class Palazzetti(object):
                 self.response_json.update({"icon": "mdi:link-off"})
             else:
                 self.response_json = json.loads('{"icon": "mdi:link-off"}')
+            await self.publish_updates()
             return False
 
         # merge the result with the exixting responnse_json
@@ -1037,7 +1040,10 @@ class Palazzetti(object):
     @property
     def hub_isbiocc(self) -> bool:
         """Return True if hub is BioCC else is ConnBox"""
-        return self.response_json["CBTYPE"] == "ET4W"
+        return (
+            self.response_json["CBTYPE"] == "ET4W"
+            or self.response_json["CBTYPE"] == "VxxET"
+        )
 
     @property
     def online(self) -> bool:

@@ -14,10 +14,9 @@ from .const import DOMAIN
 
 async def async_setup_entry(hass, config_entry, add_entities):
     """Set up the sensor platform from config flow"""
-    product = hass.data[DOMAIN][config_entry.entry_id]
-
+    myhub = hass.data[DOMAIN][config_entry.entry_id]
+    product = myhub.product
     _config = product.get_data_config_json()
-    # _data = product.get_data_states()
 
     status_icon = "mdi:fireplace-off"
     if product.get_key("STATUS") == 6:
@@ -178,12 +177,12 @@ class SensorX(Entity):
     @property
     def available(self) -> bool:
         """Return True if the product is available."""
-        return self._online
+        return self._product.online
 
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, self._id)},
+            "identifiers": {(DOMAIN, self._product.product_id)},
         }
 
     @property
@@ -267,7 +266,7 @@ class SensorState(Entity):
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, self._id)},
+            "identifiers": {(DOMAIN, self._product.product_id)},
         }
 
     @property

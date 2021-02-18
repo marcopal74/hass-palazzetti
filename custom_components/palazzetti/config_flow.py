@@ -51,8 +51,8 @@ class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             info = await validate_input(self.host)
 
             # user_input["stove"] = info["config"]
-            user_input["hub_id"] = info["hub_id"]
-            user_input["hub_isbiocc"] = info["hub_isbiocc"]
+            # user_input["hub_id"] = info["hub_id"]
+            # user_input["hub_isbiocc"] = info["hub_isbiocc"]
             print("post-validate input")
             check_exists = await self.async_set_unique_id(info["hub_id"].lower())
 

@@ -9,25 +9,26 @@ async def create_input_number(hass, entry):
     _config = None
     product = None
     try:
-        product = hass.data[DOMAIN][entry.entry_id]
+        product = hass.data[DOMAIN][entry.entry_id].product
         _config = product.get_data_config_json()
     except:
         pass
     my_sliders = []
 
     # slider impostazione potenza
-    data = {
-        "id": f"{entry.unique_id}_pwr",
-        "initial": _config["_value_power"],
-        "max": 5.0,
-        "min": 1.0,
-        "mode": "slider",
-        "name": "Potenza",
-        "step": 1.0,
-        "icon": "mdi:fire",
-    }
-    slider_power = MyNumber(hass, data, product, "power", entry.unique_id)
-    my_sliders.append(slider_power)
+    if _config["_flag_has_power"]:
+        data = {
+            "id": f"{entry.unique_id}_pwr",
+            "initial": _config["_value_power"],
+            "max": 5.0,
+            "min": 1.0,
+            "mode": "slider",
+            "name": "Potenza",
+            "step": 1.0,
+            "icon": "mdi:fire",
+        }
+        slider_power = MyNumber(hass, data, product, "power", entry.unique_id)
+        my_sliders.append(slider_power)
 
     # slider impostazione setpoint
     if _config["_flag_has_setpoint"]:
@@ -212,7 +213,7 @@ class MyNumber(InputNumber):
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, self._id)},
+            "identifiers": {(DOMAIN, self._product.product_id)},
         }
 
     # async def async_added_to_hass(self):

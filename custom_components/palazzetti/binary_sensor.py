@@ -10,11 +10,11 @@ from . import DOMAIN
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the Demo config entry."""
-    # product is offline
+    hubname = "ConnBox"
+    if config_entry.data["hub_isbiocc"]:
+        hubname = "BioCC"
+    # setup while the product is offline
     if config_entry.entry_id not in hass.data[DOMAIN]:
-        hubname = "ConnBox"
-        if config_entry.data["hub_isbiocc"]:
-            hubname = "BioCC"
         async_add_entities(
             [
                 PalBinarySensor(
@@ -23,45 +23,30 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     "hub",
                     hubname,
                     DEVICE_CLASS_CONNECTIVITY,
-                    None,
-                    config_entry.data["hub_id"],
+                    hubid=config_entry.data["hub_id"],
                 )
             ]
         )
     else:
-        product = hass.data[DOMAIN][config_entry.entry_id]
+        product = hass.data[DOMAIN][config_entry.entry_id].product
         # _config = product.get_data_config_json()
         # _data = product.get_data_json()
         # _states = product.get_data_states()
 
         list_binary = []
 
-        # according to CBTYPE the hub is the ConnBox or the BioCC
-        # if not (_config["_value_product_type"] == 7 or _config["_value_product_type"] == 8):
-        if product.hub_isbiocc:
-            # c'è la BioCC
-            list_binary.append(
-                PalBinarySensor(
-                    config_entry.unique_id,
-                    product,
-                    "hub",
-                    "BioCC",
-                    DEVICE_CLASS_CONNECTIVITY,
-                    product.hub_id,
-                )
+        # Hubb gateway binary_sensor
+        list_binary.append(
+            PalBinarySensor(
+                config_entry.unique_id,
+                product,
+                "hub",
+                hubname,
+                DEVICE_CLASS_CONNECTIVITY,
+                # hubid=product.hub_id,
+                hubid=config_entry.data["hub_id"],
             )
-        else:
-            # c'è la ConnBox
-            list_binary.append(
-                PalBinarySensor(
-                    config_entry.unique_id,
-                    product,
-                    "hub",
-                    "ConnBox",
-                    DEVICE_CLASS_CONNECTIVITY,
-                    product.hub_id,
-                )
-            )
+        )
 
         # Product detection sensor
         list_binary.append(
@@ -84,7 +69,6 @@ class PalBinarySensor(BinarySensorEntity):
         unique_id,
         name,
         device_class,
-        mydevice=None,
         hubid=None,
     ):
         """Initialize the demo sensor."""
@@ -97,8 +81,7 @@ class PalBinarySensor(BinarySensorEntity):
         else:
             self._state = False
         self._sensor_type = device_class
-        self._ishub = not (mydevice == None)
-        self._mydevice = mydevice
+        self._ishub = self._key == "hub"
         self._hubid = hubid
 
     async def async_added_to_hass(self):
@@ -121,14 +104,14 @@ class PalBinarySensor(BinarySensorEntity):
             }
         elif self._ishub:
             return {
-                "identifiers": {(DOMAIN, self._mydevice)},
+                "identifiers": {(DOMAIN, self._hubid)},
                 "name": f"{self._name} {self._product.get_key('MAC')}",
                 "manufacturer": "Palazzetti Lelio S.p.A.",
                 "model": self._product.get_key("MAC"),
                 "sw_version": self._product.get_key("SYSTEM"),
             }
         return {
-            "identifiers": {(DOMAIN, self._id)},
+            "identifiers": {(DOMAIN, self._product.product_id)},
             "name": self._product.get_key("LABEL"),
             "manufacturer": "Palazzetti Lelio S.p.A.",
             "model": self._product.get_key("SN"),
