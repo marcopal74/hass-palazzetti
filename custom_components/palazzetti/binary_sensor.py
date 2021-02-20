@@ -1,60 +1,44 @@
 """Demo platform that has two fake binary sensors."""
 from homeassistant.components.binary_sensor import (
     DEVICE_CLASS_CONNECTIVITY,
-    DEVICE_CLASS_MOTION,
     BinarySensorEntity,
 )
-from .palazzetti_sdk_local_api import PalDiscovery
 from . import DOMAIN
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the Demo config entry."""
-    hubname = "ConnBox"
-    if config_entry.data["hub_isbiocc"]:
-        hubname = "BioCC"
-    # setup while the product is offline
-    if config_entry.entry_id not in hass.data[DOMAIN]:
-        async_add_entities(
-            [
-                PalBinarySensor(
-                    config_entry.unique_id,
-                    None,
-                    "hub",
-                    hubname,
-                    DEVICE_CLASS_CONNECTIVITY,
-                    hubid=config_entry.data["hub_id"],
-                )
-            ]
+    myhub = hass.data[DOMAIN][config_entry.entry_id]
+    list_binary = []
+    # setup Hub connectivity sensor
+    list_binary.append(
+        PalBinarySensor(
+            config_entry.unique_id,
+            myhub,
+            None,
+            "hub",
+            myhub.hub_name,
+            DEVICE_CLASS_CONNECTIVITY,
+            hubid=config_entry.data["hub_id"],
         )
-    else:
-        product = hass.data[DOMAIN][config_entry.entry_id].product
-        # _config = product.get_data_config_json()
-        # _data = product.get_data_json()
-        # _states = product.get_data_states()
+    )
+    # if myhub.online or (1 == 1):
 
-        list_binary = []
+    product = myhub.product
 
-        # Hubb gateway binary_sensor
-        list_binary.append(
-            PalBinarySensor(
-                config_entry.unique_id,
-                product,
-                "hub",
-                hubname,
-                DEVICE_CLASS_CONNECTIVITY,
-                # hubid=product.hub_id,
-                hubid=config_entry.data["hub_id"],
-            )
+    # Product detection sensor
+    list_binary.append(
+        PalBinarySensor(
+            config_entry.unique_id,
+            myhub,
+            product,
+            "prod",
+            "Prodotto",
+            DEVICE_CLASS_CONNECTIVITY,
         )
+    )
 
-        # Product detection sensor
-        list_binary.append(
-            PalBinarySensor(
-                config_entry.unique_id, product, "prod", "Prodotto", DEVICE_CLASS_MOTION
-            )
-        )
-        async_add_entities(list_binary)
+    async_add_entities(list_binary)
 
 
 class PalBinarySensor(BinarySensorEntity):
@@ -65,6 +49,7 @@ class PalBinarySensor(BinarySensorEntity):
     def __init__(
         self,
         myid,
+        myhub,
         product,
         unique_id,
         name,
@@ -76,6 +61,7 @@ class PalBinarySensor(BinarySensorEntity):
         self._key = unique_id
         self._id = myid
         self._name = name
+        self._myhub = myhub
         if product:
             self._state = product.online
         else:
@@ -87,28 +73,38 @@ class PalBinarySensor(BinarySensorEntity):
     async def async_added_to_hass(self):
         """Run when this Entity has been added to HA."""
         # Sensors should also register callbacks to HA when their state changes
+        if self._ishub:
+            self._myhub.register_callback(self.async_write_ha_state)
         if self._product is not None:
             self._product.register_callback(self.async_write_ha_state)
 
     async def async_will_remove_from_hass(self):
         """Entity being removed from hass."""
         # The opposite of async_added_to_hass. Remove any registered call backs here.
+        if self._ishub:
+            self._myhub.remove_callback(self.async_write_ha_state)
         if self._product is not None:
             self._product.remove_callback(self.async_write_ha_state)
 
     @property
     def device_info(self):
-        if self._product == None:
+        if not self._myhub.online:
+            if self._ishub:
+                return {
+                    "identifiers": {(DOMAIN, self._hubid)},
+                }
             return {
-                "identifiers": {(DOMAIN, self._hubid)},
+                "identifiers": {(DOMAIN, self._myhub.hub_id + "_prd")},
             }
-        elif self._ishub:
+
+        # Hub is online:
+        if self._ishub:
             return {
                 "identifiers": {(DOMAIN, self._hubid)},
-                "name": f"{self._name} {self._product.get_key('MAC')}",
+                "name": f"{self._name} {self._myhub.get_attributes()['MAC']}",
                 "manufacturer": "Palazzetti Lelio S.p.A.",
-                "model": self._product.get_key("MAC"),
-                "sw_version": self._product.get_key("SYSTEM"),
+                "model": self._myhub.get_attributes()["MAC"],
+                "sw_version": self._myhub.get_attributes()["SYSTEM"],
             }
         return {
             "identifiers": {(DOMAIN, self._product.product_id)},
@@ -116,7 +112,7 @@ class PalBinarySensor(BinarySensorEntity):
             "manufacturer": "Palazzetti Lelio S.p.A.",
             "model": self._product.get_key("SN"),
             "sw_version": f"mod {self._product.get_key('MOD')} v{self._product.get_key('VER')} {self._product.get_key('FWDATE')}",
-            "via_device": (DOMAIN, self._product.hub_id),
+            "via_device": (DOMAIN, self._myhub.hub_id),
         }
 
     @property
@@ -129,11 +125,6 @@ class PalBinarySensor(BinarySensorEntity):
         """Return the class of this sensor."""
         return self._sensor_type
 
-    # @property
-    # def should_poll(self):
-    #     """No polling needed for a demo binary sensor."""
-    #     return self._product is not None
-
     @property
     def name(self):
         """Return the name of the binary sensor."""
@@ -143,58 +134,43 @@ class PalBinarySensor(BinarySensorEntity):
     def icon(self):
         """Return the icon of the sensor."""
         # product is not reachable
-        if self._product == None:
-            return "mdi:server-network-off"
-        if (not self._ishub) and self._product.online:
-            return "mdi:link"
-        elif (not self._ishub) and (not self._product.online):
+        if not self._myhub.online:
+            if self._ishub:
+                return "mdi:server-network-off"
             return "mdi:link-off"
+
+        if self._myhub.online:
+            if self._ishub:
+                return "mdi:server-network"
+            return "mdi:link"
 
     @property
     def is_on(self):
         """Return true if the binary sensor is on."""
-        if self._product == None:
+        if not self._myhub.online:
             return False
 
-        return self._product.online
+        if self._ishub:
+            return self._myhub.online
+
+        if self._product:
+            return self._product.online
+
+        return False
 
     @property
     def device_state_attributes(self):
         """Return the device state attributes."""
-        if self._product == None:
-            return False
+        if not self._myhub.online:
+            return None
+
+        if self._ishub:
+            cbox_attrib = self._myhub.get_attributes()
+            return cbox_attrib
 
         _prod_attrib = self._product.get_prod_data_json()
         _prod_attrib.update({"icon": "mdi:link"})
-        if self._ishub:
-            cbox_attrib = self._product.get_cb_data_json()
-            return cbox_attrib
-
         return _prod_attrib
 
     async def async_update(self):
         print(f"binary_sensor PalBinarySensor update {self._key}")
-
-    # async def async_update(self):
-    #     """Fetch new state data for the sensor.
-
-
-#
-#     This is the only method that should fetch new data for Home Assistant.
-#     """
-#     if self._product == None and self._key == "hub":
-#         check_api = PalDiscovery()
-#         check_ip = await check_api.checkIP(self._myhost)
-#
-#         if check_ip:
-#             print("IP now reachable")
-#             # clean up all
-#             # myplatform = get_platform(hass, "binary_sensor")
-#             # if myplatform.entities and entry.state != "not_loaded":
-#             # await hass.config_entries.async_forward_entry_unload(entry, "binary_sensor")
-#             # re launch setup
-#             await self.hass.config_entries.async_reload(self._entryid)
-#         else:
-#             print("IP not reachable")
-#     else:
-#         print("binary update")

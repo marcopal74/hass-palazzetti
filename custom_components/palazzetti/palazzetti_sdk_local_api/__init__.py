@@ -47,6 +47,7 @@ HUB_KEYS = [
     "SYSTEM",
     "WBCST",
     "WCH",
+    "IP",
 ]
 
 # to be completed!!
@@ -95,7 +96,7 @@ class PalComm(object):
                 async with session.get(queryStr, params=params) as response:
                     if response.status != 200:
                         _LOGGER.error(
-                            "Error during api request : http status returned is {}".format(
+                            "Error during async api request : http status returned is {}".format(
                                 response.status
                             )
                         )
@@ -246,7 +247,7 @@ class PalDiscovery(object):
 class Hub(object):
     """Hub gateway HTTP class"""
 
-    def __init__(self, host):
+    def __init__(self, host, isbiocc=False):
         _LOGGER.debug("Init of class hub")
 
         self.ip = host
@@ -255,21 +256,25 @@ class Hub(object):
         self.online = False
         self.unique_id = "plz_" + str(host).replace(".", "_")
         self._callbacks = set()
+        self._isbiocc = isbiocc
         self._product = None
         self._myclimate_1 = None
         self._myclimate_2 = None
         self._myclimate_3 = None
         self._shape = None
-        self.response_json = {"icon": "mdi:link-off"}
+        self.response_json = {"icon": "mdi:link-off", "IP": self.ip}
 
     async def async_update(self, discovery=False):
-        _response = await self.paldiscovery.checkIP(self.ip, response=True)
+        _response = await self.paldiscovery.checkIP_UDP(self.ip, response=True)
         if not _response:
             self.online = False
+            if self._product:
+                await self._product.async_set_offline()
             if self.response_json != None:
                 self.response_json.update({"icon": "mdi:link-off"})
             else:
                 self.response_json = json.loads('{"icon": "mdi:link-off"}')
+            await self.publish_updates()
             return
 
         if discovery:
@@ -343,15 +348,23 @@ class Hub(object):
         """Return True if hub is BioCC else is ConnBox"""
         if "CBTYPE" not in self.response_json:
             # if not self.response_json:
-            return
+            return self._isbiocc
         return (
             self.response_json["CBTYPE"] == "ET4W"
             or self.response_json["CBTYPE"] == "VxxET"
         )
 
     @property
+    def hub_name(self) -> str:
+        """Return name of the gateway"""
+        _name = "ConnBox"
+        if self.hub_isbiocc:
+            _name = "BioCC"
+        return _name
+
+    @property
     def label(self) -> str:
-        """Return True if hub is BioCC else is ConnBox"""
+        """Return LABEL key"""
         if "LABEL" not in self.response_json:
             # if not self.response_json:
             return
@@ -388,7 +401,6 @@ class Hub(object):
             newList = {
                 k: self.response_json[k] for k in HUB_KEYS if k in self.response_json
             }
-            newList.update({"IP": self.ip})
             newList.update({"icon": self.response_json["icon"]})
             newList_json = json.dumps(newList)
             return newList
@@ -513,13 +525,14 @@ class Palazzetti(object):
         _response = await self.palsocket.async_getHTTP(self.ip, message)
 
         if not _response:
-            self.state = "offline"
-            self.data["state"] = self.state
-            if self.response_json != None:
-                self.response_json.update({"icon": "mdi:link-off"})
-            else:
-                self.response_json = json.loads('{"icon": "mdi:link-off"}')
-            await self.publish_updates()
+            await self.async_set_offline()
+            # self.state = "offline"
+            # self.data["state"] = self.state
+            # if self.response_json != None:
+            #     self.response_json.update({"icon": "mdi:link-off"})
+            # else:
+            #     self.response_json = json.loads('{"icon": "mdi:link-off"}')
+            # await self.publish_updates()
             return False
 
         # merge the result with the exixting responnse_json
@@ -1049,6 +1062,15 @@ class Palazzetti(object):
     def online(self) -> bool:
         """Return True if product is online"""
         return self.state == "online"
+
+    async def async_set_offline(self):
+        self.state = "offline"
+        self.data["state"] = self.state
+        if self.response_json != None:
+            self.response_json.update({"icon": "mdi:link-off"})
+        else:
+            self.response_json = json.loads('{"icon": "mdi:link-off"}')
+        await self.publish_updates()
 
     def register_callback(self, callback):
         """Register callback, called when Roller changes state."""
