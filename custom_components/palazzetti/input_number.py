@@ -71,7 +71,7 @@ async def create_input_number(hass, entry):
             "max": _config["_value_fan_limits"][(((fan - 1) * 2) + 1)],
             "min": _config["_value_fan_limits"][((fan - 1) * 2)],
             "mode": "slider",
-            "name": "Fan 2",
+            "name": "Fan L",
             "step": 1.0,
             "icon": "mdi:fan-speed-2",
         }
@@ -87,7 +87,7 @@ async def create_input_number(hass, entry):
             "max": _config["_value_fan_limits"][(((fan - 1) * 2) + 1)],
             "min": _config["_value_fan_limits"][((fan - 1) * 2)],
             "mode": "slider",
-            "name": "Fan 3",
+            "name": "Fan R",
             "step": 1.0,
             "icon": "mdi:fan-speed-3",
         }
@@ -176,9 +176,9 @@ class MyNumber(InputNumber):
         elif self._type == "fan1":
             return self._product.get_key("F2L")
         elif self._type == "fan2":
-            return self._product.get_key("F2L")
+            return self._product.get_key("F3L")
         elif self._type == "fan3":
-            return self._product.get_key("F2L")
+            return self._product.get_key("F4L")
 
     @property
     def _minimum(self) -> float:

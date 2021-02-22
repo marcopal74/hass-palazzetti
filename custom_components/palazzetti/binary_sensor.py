@@ -31,7 +31,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             "prod",
             "Product",
             DEVICE_CLASS_CONNECTIVITY,
-            deviceid=myhub.hub_id + "_prd",
+            deviceid=myhub.hub_id + "_prd",  # aka: myhub.product.product_id
         )
     )
 
@@ -66,27 +66,10 @@ class PalBinarySensor(BinarySensorEntity):
         self._name = name
         self._sensor_type = device_class
         self._deviceid = deviceid
-        self._hubid = deviceid
 
         # internal variables
         self._product = myhub.product  # it could be offline
         self._ishub = self._key == "hub"
-
-    async def async_added_to_hass(self):
-        """Run when this Entity has been added to HA."""
-        # Sensors should also register callbacks to HA when their state changes
-        if self._ishub:
-            self._myhub.register_callback(self.async_write_ha_state)
-        if self._product is not None:
-            self._product.register_callback(self.async_write_ha_state)
-
-    async def async_will_remove_from_hass(self):
-        """Entity being removed from hass."""
-        # The opposite of async_added_to_hass. Remove any registered call backs here.
-        if self._ishub:
-            self._myhub.remove_callback(self.async_write_ha_state)
-        if self._product is not None:
-            self._product.remove_callback(self.async_write_ha_state)
 
     @property
     def device_info(self):
@@ -182,6 +165,22 @@ class PalBinarySensor(BinarySensorEntity):
             return _prod_attrib
 
         return None
+
+    async def async_added_to_hass(self):
+        """Run when this Entity has been added to HA."""
+        # Sensors should also register callbacks to HA when their state changes
+        if self._ishub:
+            self._myhub.register_callback(self.async_write_ha_state)
+        if self._product is not None:
+            self._product.register_callback(self.async_write_ha_state)
+
+    async def async_will_remove_from_hass(self):
+        """Entity being removed from hass."""
+        # The opposite of async_added_to_hass. Remove any registered call backs here.
+        if self._ishub:
+            self._myhub.remove_callback(self.async_write_ha_state)
+        if self._product is not None:
+            self._product.remove_callback(self.async_write_ha_state)
 
     async def async_update(self):
         print(f"binary_sensor PalBinarySensor update: {self._key}")
