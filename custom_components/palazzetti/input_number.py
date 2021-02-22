@@ -108,6 +108,22 @@ async def create_input_number(hass, entry):
     await input_number_platform.async_add_entities(my_sliders, True)
 
 
+async def unload_input_number(hass, entry) -> None:
+    platform_name = "input_number"
+    input_number_platform = get_platform(hass, platform_name)
+
+    if input_number_platform:
+        mylist = input_number_platform.entities
+        for myentity in mylist:
+            myident = mylist[myentity].device_info["identifiers"]
+            for field in myident:
+                field_check = field[1]
+                if field_check == (entry.unique_id + "_prd"):
+                    hass.async_create_task(
+                        input_number_platform.async_remove_entity(myentity)
+                    )
+
+
 class MyNumber(InputNumber):
     """Representation of a slider."""
 

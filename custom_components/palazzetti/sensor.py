@@ -145,6 +145,8 @@ class SensorX(Entity):
         self._product = product
         self._state = None
         self._id = product.product_id
+        if self._id is None:
+            self._id = "vuoto"
         self._online = product.online
         self._unit = unit
         self._key = key_val
@@ -251,7 +253,9 @@ class SensorState(Entity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        return self._product.get_data_states()[self._key]
+        if self._key in self._product.get_data_states():
+            return self._product.get_data_states()[self._key]
+        return "UNAVAILABLE"
 
     @property
     def icon(self):
@@ -309,4 +313,5 @@ class SensorState(Entity):
             status_icon = "mdi:alert"
 
         self._icon = status_icon
-        self._state = self._product.get_data_states()[self._key]
+        if self._key in self._product.get_data_states():
+            self._state = self._product.get_data_states()[self._key]

@@ -10,19 +10,17 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.event import (
     async_track_time_interval,
 )
-from homeassistant.helpers import config_validation as cv, entity_platform
-from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.entity_component import EntityComponent
+from homeassistant.helpers import config_validation as cv
 from homeassistant.const import ATTR_ENTITY_ID
 from .const import DOMAIN, INTERVAL, INTERVAL_CNTR, INTERVAL_STDT, INTERVAL_KPAL
-from .input_number import create_input_number
+from .input_number import create_input_number, unload_input_number
 from .helper import setup_platform
 import voluptuous as vol
-from .palazzetti_sdk_local_api import Palazzetti, PalDiscovery, Hub
+from .palazzetti_sdk_local_api import Hub
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [
+PLATFORMS_LOAD = [
     #  "binary_sensor",
     "switch",
     "sensor",
@@ -31,7 +29,7 @@ PLATFORMS = [
     "cover",
 ]
 
-PLATFORMS_2 = [
+PLATFORMS_UNLOAD = [
     "binary_sensor",
     "switch",
     "sensor",
@@ -47,21 +45,18 @@ LISTENERS = [
     "_listener_kalive",
 ]
 
+SERVICES = ["set_setpoint", "set_silent"]
+
 
 async def async_keep_alive(hass: HomeAssistant, entry: ConfigEntry):
     myhub = hass.data[DOMAIN][entry.entry_id]
     await myhub.async_update()
 
-    if myhub.hub_online:
-
-        # check_api = PalDiscovery()
-        # check_ip = await check_api.checkIP(entry.data["host"])
-
-        # if check_ip:
-        print("IP now reachable")
+    if myhub.hub_online and myhub.product_online:
+        print("IP now reachable and product is online")
         await hass.config_entries.async_reload(entry.entry_id)
     else:
-        print("IP not reachable")
+        print("IP still not reachable")
 
 
 async def async_upd_alls(hass: HomeAssistant, entry: ConfigEntry):
@@ -71,36 +66,52 @@ async def async_upd_alls(hass: HomeAssistant, entry: ConfigEntry):
     if not myhub.hub_online:
         return
     else:
-        _api = myhub.product
-        await _api.async_get_alls()
+        if myhub.product_online:
+            _api = myhub.product
+            await _api.async_get_alls()
+        return
 
 
 async def async_upd_cntr(hass: HomeAssistant, entry: ConfigEntry):
-    if entry.entry_id not in hass.data[DOMAIN]:
+    myhub = hass.data[DOMAIN][entry.entry_id]
+    await myhub.async_update()
+
+    if not myhub.hub_online:
         return
-    _api = hass.data[DOMAIN][entry.entry_id].product
-    await _api.async_get_cntr()
+    else:
+        if myhub.product_online:
+            _api = myhub.product
+            await _api.async_get_cntr()
+
+        return
 
 
 async def async_upd_stdt(hass: HomeAssistant, entry: ConfigEntry):
-    if entry.entry_id not in hass.data[DOMAIN]:
+    myhub = hass.data[DOMAIN][entry.entry_id]
+    await myhub.async_update()
+
+    if not myhub.hub_online:
         return
-    _api = hass.data[DOMAIN][entry.entry_id].product
-    await _api.async_get_stdt()
+    else:
+        if myhub.product_online:
+            _api = myhub.product
+            await _api.async_get_stdt()
+
+        return
 
 
 async def async_create_platforms(hass: HomeAssistant, entry: ConfigEntry):
     print("Creating platforms")
 
     my_api = hass.data[DOMAIN][entry.entry_id].product
-    # await my_api.async_get_alls()
-    # await my_api.async_get_stdt()
-    # await my_api.async_get_cntr()
+    if not my_api.online:
+        return
+
     _config = my_api.get_data_config_json()
 
     await setup_platform(hass, "input_number")
 
-    for component in PLATFORMS:
+    for component in PLATFORMS_LOAD:
         if component == "cover":
             if _config["_flag_has_door_control"]:
                 hass.async_create_task(
@@ -153,17 +164,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     myhub = Hub(entry.data["host"], entry.data["hub_isbiocc"])
     hass.data[DOMAIN][entry.entry_id] = myhub
     await myhub.async_update(discovery=True)
+
+    # setup binary_sensor for state monitoring
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "binary_sensor")
     )
-    if not myhub.online:
 
-        # check_api = PalDiscovery()
-        # check_ip = await check_api.checkIP(entry.data["host"])
-
-        # if not check_ip:
-        print("IP is unreachable")
-        # setup platform for binary_sensors only
+    if (not myhub.online) or (not myhub.product_online):
+        print("IP is unreachable or product offline")
 
         # keep alive loop until ip is reachable
         def keep_alive(event_time):
@@ -176,7 +184,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data[DOMAIN][entry.entry_id + "_listener_kalive"] = listener_kalive
         return True
 
-    print("IP is reachable")
+    print("IP is reachable and product is online")
 
     # loop for get dynamic data of stove
     def update_state_datas(event_time):
@@ -190,18 +198,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     def update_static_datas(event_time):
         return asyncio.run_coroutine_threadsafe(async_upd_stdt(hass, entry), hass.loop)
 
-    # entry.unique_id is generated by the Palazzetti Class during the config_flow
-    # and is normally the SN or the MAC address if SN is missing
-    # await myhub.async_update(discovery=True)
-    #  api = myhub.product
-    # api = Palazzetti(entry.data["host"], entry.unique_id + "_prd")
-    # entry.entry_id is generated by HA at the end of the config_flow
-    # and is the GUID of the config_entry
-    #  hass.data[DOMAIN][entry.entry_id] = myhub
-    # hass.data[DOMAIN][entry.entry_id + "_hub"] = myhub
-    # create platforms at setup only if IP is reachable
-    # manages the situation in which HA is rebooted and the device
-    # is temporary not available ()
     listener_alls = async_track_time_interval(hass, update_state_datas, INTERVAL)
     hass.data[DOMAIN][entry.entry_id + "_listener_alls"] = listener_alls
     listener_cntr = async_track_time_interval(hass, update_cntr_datas, INTERVAL_CNTR)
@@ -209,13 +205,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     listener_stdt = async_track_time_interval(hass, update_static_datas, INTERVAL_STDT)
     hass.data[DOMAIN][entry.entry_id + "_listener_stdt"] = listener_stdt
 
-    # crea le piattaforme
+    # create platforms
     await async_create_platforms(hass, entry)
 
     # services
     print("Creating service")
 
-    # servizio set setpoint
+    # service set_setpoint
     myids = []
     # mydata_domain = hass.data[DOMAIN]
     # for product in mydata_domain:
@@ -252,7 +248,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     hass.services.async_register(DOMAIN, "set_setpoint", set_setpoint, SET_SCHEMA)
 
-    # servizio set silent
+    # service set_silent
     myids2 = []
     # mydata_domain = hass.data[DOMAIN]
     # for product in mydata_domain:
@@ -292,16 +288,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
+    print("Unload all")
     unload_ok = all(
         await asyncio.gather(
             *[
                 hass.config_entries.async_forward_entry_unload(entry, component)
-                for component in PLATFORMS_2
+                for component in PLATFORMS_UNLOAD
             ]
         )
     )
 
-    # if unload_ok:
+    # unloads input_number entities
+    await unload_input_number(hass, entry)
+
     for mylistener in LISTENERS:
         if entry.entry_id + str(mylistener) in hass.data[DOMAIN]:
             hass.data[DOMAIN][entry.entry_id + str(mylistener)]()
@@ -309,10 +308,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     if entry.entry_id in hass.data[DOMAIN]:
         hass.data[DOMAIN].pop(entry.entry_id)
-        # hass.data[DOMAIN].pop(entry.entry_id + "_hub")
 
-    hass.services.async_remove(DOMAIN, "set_setpoint")
-    hass.services.async_remove(DOMAIN, "set_silent")
+    if DOMAIN in hass.services._services:
+        for myservice in SERVICES:
+            if myservice in hass.services._services[DOMAIN]:
+                hass.services.async_remove(DOMAIN, myservice)
 
-    # return unload_ok
     return True

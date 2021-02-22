@@ -1,25 +1,24 @@
-"""Config flow for warmup4ie integration."""
+"""Config flow for Palazzetti integration."""
 import logging
-import re
 import voluptuous as vol
 from homeassistant import config_entries, exceptions
 from .palazzetti_sdk_local_api import Hub
 
-from . import DOMAIN  # pylint:disable=unused-import
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-# TODO adjust the data schema to the data that you need
 DATA_SCHEMA = vol.Schema({"host": str})
 STEP_USER_DATA_SCHEMA = vol.Schema({"host": str})
 
 
 async def validate_input(_user_host):
-    """chech if user host is a ConnectionBox IP"""
+    """chech if user host is a Palazzetti Hub IP"""
 
     myhub = Hub(_user_host)
     myconfig = {"hub_id": myhub.hub_id, "host": _user_host}
 
+    # connect to get Hub data
     await myhub.async_update()
     if myhub.online:
         myconfig["hub_isbiocc"] = myhub.hub_isbiocc
@@ -33,7 +32,6 @@ class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Palazzetti."""
 
     VERSION = 1
-
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
 
     async def async_step_user(self, user_input=None):
@@ -46,21 +44,20 @@ class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         try:
-            print("pre-validate input")
             self.host = user_input["host"]
+
+            # validate host address
             info = await validate_input(self.host)
 
-            # user_input["stove"] = info["config"]
-            # user_input["hub_id"] = info["hub_id"]
-            # user_input["hub_isbiocc"] = info["hub_isbiocc"]
-            print("post-validate input")
+            # check if already registered
             check_exists = await self.async_set_unique_id(info["hub_id"].lower())
 
             if check_exists:
                 return self.async_abort(reason="host_exists")
 
+            # create config_entry
             return self.async_create_entry(
-                title=info["label"],
+                title=f"{info['label']} ({self.host})",
                 data=info,
             )
 
@@ -78,7 +75,6 @@ class DomainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             errors["base"] = "unknown"
 
-        # return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA)
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
