@@ -38,25 +38,28 @@ class BaseSwitch(SwitchEntity):
 
     should_poll = False
 
-    def __init__(self, product, name, state, icon, device_class=None):
+    def __init__(self, product, friendly_name, state, icon, device_class=None):
         """Initialize the Demo switch."""
         self._product = product
-        self._name = name or DEVICE_DEFAULT_NAME
+        self._fname = friendly_name or DEVICE_DEFAULT_NAME
         self._state = state
         self._icon = icon
         self._device_class = device_class
 
         # internal variables
         self._assumed = False
+        self._deviceid = "device_" + self._fname
+        if self._product and self._product.product_id:
+            self._deviceid = self._product.product_id
 
     @property
     def device_info(self):
-        return {"identifiers": {(DOMAIN, self._product.product_id)}}
+        return {"identifiers": {(DOMAIN, self._deviceid)}}
 
     @property
     def name(self):
         """Return the name of the device if any."""
-        return self._name
+        return self._fname
 
     @property
     def icon(self):
@@ -89,11 +92,15 @@ class BaseSwitch(SwitchEntity):
 class OnOffSwitch(BaseSwitch):
     """Representation of a demo switch."""
 
-    def __init__(self, product, name, state, icon, device_class=None):
+    def __init__(self, product, friendly_name, state, icon, device_class=None):
         """Initialize the Demo switch."""
-        super().__init__(product, name, state, icon, device_class)
+        super().__init__(product, friendly_name, state, icon, device_class)
 
-        self._unique_id = product.product_id + "_onoff"
+        self._key = "_onoff"
+
+        self._unique_id = "vuoto_" + self._key
+        if self._product and self._product.product_id:
+            self._unique_id = self._product.product_id + "_" + self._key
 
     @property
     def unique_id(self):
@@ -150,11 +157,16 @@ class OnOffSwitch(BaseSwitch):
 class ZeroSpeed(BaseSwitch):
     """Representation of a demo switch."""
 
-    def __init__(self, product, name, state, icon, device_class=None):
+    def __init__(self, product, friendly_name, state, icon, device_class=None):
         """Initialize the Demo switch."""
-        super().__init__(product, name, state, icon, device_class)
+        super().__init__(product, friendly_name, state, icon, device_class)
 
-        self._unique_id = product.product_id + "_silent"
+        self._key = "silent"
+
+        # internal variables
+        self._unique_id = "vuoto_" + self._key
+        if product and product.product_id:
+            self._unique_id = product.product_id + "_" + self._key
 
     @property
     def unique_id(self):

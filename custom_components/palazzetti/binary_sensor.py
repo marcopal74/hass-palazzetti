@@ -14,24 +14,20 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     # Hub connectivity sensor
     list_binary.append(
         PalBinarySensor(
-            config_entry.unique_id,
             myhub,
             "hub",
             myhub.hub_name,
             DEVICE_CLASS_CONNECTIVITY,
-            deviceid=myhub.hub_id,
         )
     )
 
     # Product connectivity sensor
     list_binary.append(
         PalBinarySensor(
-            config_entry.unique_id,
             myhub,
             "prod",
             "Product",
             DEVICE_CLASS_CONNECTIVITY,
-            deviceid=myhub.hub_id + "_prd",  # aka: myhub.product.product_id
         )
     )
 
@@ -51,29 +47,34 @@ class PalBinarySensor(BinarySensorEntity):
 
     def __init__(
         self,
-        myid,
-        myhub,
-        key,
-        name,
+        hub,
+        key_val,
+        friendly_name,
         device_class,
-        deviceid=None,
     ):
         """Initialize the demo sensor."""
 
-        self._id = myid
-        self._myhub = myhub
-        self._key = key
-        self._name = name
+        self._hub = hub
+        self._key = key_val
+        self._fname = friendly_name
         self._sensor_type = device_class
-        self._deviceid = deviceid
 
         # internal variables
-        self._product = myhub.product  # it could be offline
+        self._product = self._hub.product  # it could be offline
         self._ishub = self._key == "hub"
+
+        self._unique_id = "unique_" + self._key
+        self._deviceid = "device" + self._key
+        if self._hub and self._hub.hub_id:
+            self._unique_id = self._hub.hub_id + "_" + self._key
+
+            self._deviceid = self._hub.hub_id
+            if not self._ishub:
+                self._deviceid = self._hub.hub_id + "_prd"
 
     @property
     def device_info(self):
-        if not self._myhub.online:
+        if not self._hub.online:
             return {
                 "identifiers": {(DOMAIN, self._deviceid)},
             }
@@ -82,27 +83,27 @@ class PalBinarySensor(BinarySensorEntity):
         if self._ishub:
             return {
                 "identifiers": {(DOMAIN, self._deviceid)},
-                "name": f"{self._name} {self._myhub.get_attributes()['MAC']}",
+                "name": f"{self._fname} {self._hub.get_attributes()['MAC']}",
                 "manufacturer": COMPANY,
-                "model": self._myhub.get_attributes()["MAC"],
-                "sw_version": self._myhub.get_attributes()["SYSTEM"],
+                "model": self._hub.get_attributes()["MAC"],
+                "sw_version": self._hub.get_attributes()["SYSTEM"],
             }
 
         # By now no MyCli-mate or Shape
         return {
             "identifiers": {(DOMAIN, self._deviceid)},
-            "name": self._myhub.label,
+            "name": self._hub.label,
             "manufacturer": COMPANY,
             "model": self._product.get_key("SN"),
             "sw_version": f"mod {self._product.get_key('MOD')} v{self._product.get_key('VER')} {self._product.get_key('FWDATE')}",
-            "via_device": (DOMAIN, self._myhub.hub_id),
+            "via_device": (DOMAIN, self._hub.hub_id),
         }
 
     @property
     def unique_id(self):
         """Return the name of the sensor."""
         # either _hub or _prod
-        return self._id + "_" + self._key
+        return self._unique_id
 
     @property
     def device_class(self):
@@ -113,7 +114,7 @@ class PalBinarySensor(BinarySensorEntity):
     def name(self):
         """Return the name of the binary sensor."""
         # either ConnBox, BioCC or Product
-        return self._name
+        return self._fname
 
     @property
     def icon(self):
@@ -130,13 +131,13 @@ class PalBinarySensor(BinarySensorEntity):
     @property
     def is_on(self):
         """Return true if the binary sensor is on."""
-        if not self._myhub.online:
+        if not self._hub.online:
             return False
 
         if self._ishub:
-            return self._myhub.online
+            return self._hub.online
 
-        return self._myhub.product_online
+        return self._hub.product_online
 
         # Option "2": relays on product status and nor APLCONN key
         # if self._product:
@@ -147,15 +148,15 @@ class PalBinarySensor(BinarySensorEntity):
     @property
     def device_state_attributes(self):
         """Return the device state attributes."""
-        if not self._myhub.online:
+        if not self._hub.online:
             return None
 
         if self._ishub:
-            cbox_attrib = self._myhub.get_attributes()
+            cbox_attrib = self._hub.get_attributes()
             return cbox_attrib
 
         _prod_attrib = {}
-        if not self._myhub.product_online:
+        if not self._hub.product_online:
             _prod_attrib.update({"icon": "mdi:link-off"})
             return _prod_attrib
 
@@ -170,7 +171,7 @@ class PalBinarySensor(BinarySensorEntity):
         """Run when this Entity has been added to HA."""
         # Sensors should also register callbacks to HA when their state changes
         if self._ishub:
-            self._myhub.register_callback(self.async_write_ha_state)
+            self._hub.register_callback(self.async_write_ha_state)
         if self._product is not None:
             self._product.register_callback(self.async_write_ha_state)
 
@@ -178,7 +179,7 @@ class PalBinarySensor(BinarySensorEntity):
         """Entity being removed from hass."""
         # The opposite of async_added_to_hass. Remove any registered call backs here.
         if self._ishub:
-            self._myhub.remove_callback(self.async_write_ha_state)
+            self._hub.remove_callback(self.async_write_ha_state)
         if self._product is not None:
             self._product.remove_callback(self.async_write_ha_state)
 

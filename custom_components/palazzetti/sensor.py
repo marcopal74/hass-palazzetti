@@ -43,8 +43,8 @@ async def async_setup_entry(hass, config_entry, add_entities):
         SensorState(
             product,
             "status",
-            None,
             product.get_key("LABEL"),
+            None,
         )
     )
 
@@ -53,9 +53,9 @@ async def async_setup_entry(hass, config_entry, add_entities):
         SensorX(
             product,
             _config["_value_temp_main_description"],
-            TEMP_CELSIUS,
-            None,
             nome_temp,
+            None,
+            TEMP_CELSIUS,
         )
     )
 
@@ -65,9 +65,9 @@ async def async_setup_entry(hass, config_entry, add_entities):
             SensorX(
                 product,
                 "SETP",
-                TEMP_CELSIUS,
-                None,
                 "Setpoint",
+                None,
+                TEMP_CELSIUS,
             )
         )
 
@@ -77,9 +77,9 @@ async def async_setup_entry(hass, config_entry, add_entities):
             SensorX(
                 product,
                 "T2",
-                TEMP_CELSIUS,
-                "mdi:arrow-left-bold-outline",
                 "Temp. Ritorno",
+                "mdi:arrow-left-bold-outline",
+                TEMP_CELSIUS,
             )
         )
         # T1 Idro
@@ -87,12 +87,12 @@ async def async_setup_entry(hass, config_entry, add_entities):
             SensorX(
                 product,
                 "T1",
-                TEMP_CELSIUS,
-                "mdi:arrow-right-bold",
                 code_status.get(
                     _config["_value_temp_hydro_t1_description"],
                     _config["_value_temp_hydro_t1_description"],
                 ),
+                "mdi:arrow-right-bold",
+                TEMP_CELSIUS,
             )
         )
 
@@ -102,9 +102,9 @@ async def async_setup_entry(hass, config_entry, add_entities):
             SensorX(
                 product,
                 "PQT",
-                "kg",
-                "mdi:chart-bell-curve-cumulative",
                 "Pellet Consumato",
+                "mdi:chart-bell-curve-cumulative",
+                "kg",
             )
         )
 
@@ -114,9 +114,9 @@ async def async_setup_entry(hass, config_entry, add_entities):
             SensorX(
                 product,
                 "PLEVEL",
-                "cm",
-                "mdi:cup",
                 "Livello Pellet",
+                "mdi:cup",
+                "cm",
             )
         )
 
@@ -130,23 +130,25 @@ class SensorX(Entity):
 
     should_poll = False
 
-    def __init__(self, product, key_val, unit=None, icon=None, friendly_name=None):
+    def __init__(self, product, key_val, friendly_name=None, icon=None, unit=None):
         """Initialize the sensor."""
         self._product = product
         self._key = key_val
-        self._unit = unit
-        self._icon = icon
         self._fname = friendly_name or DEVICE_DEFAULT_NAME
+        self._icon = icon
+        self._unit = unit
 
         # internal variables
         self._unique_id = "vuoto_" + self._key
-        if product and product.product_id:
+        self._deviceid = "device_" + self._key
+        if self._product and self._product.product_id:
             self._unique_id = product.product_id + "_" + self._key
+            self._deviceid = self._product.product_id
 
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, self._product.product_id)},
+            "identifiers": {(DOMAIN, self._deviceid)},
         }
 
     @property
@@ -202,22 +204,24 @@ class SensorState(Entity):
 
     should_poll = False
 
-    def __init__(self, product, key_val, unit=None, friendly_name=None):
+    def __init__(self, product, key_val, friendly_name=None, unit=None):
         """Initialize the sensor."""
         self._product = product
         self._key = key_val
-        self._unit = unit
         self._fname = friendly_name or DEVICE_DEFAULT_NAME
+        self._unit = unit
 
         # internal variables
         self._unique_id = "vuoto_" + self._key
-        if product and product.product_id:
+        self._deviceid = "device_" + self._key
+        if self._product and self._product.product_id:
             self._unique_id = product.product_id + "_" + self._key
+            self._deviceid = self._product.product_id
 
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, self._product.product_id)},
+            "identifiers": {(DOMAIN, self._deviceid)},
         }
 
     @property
