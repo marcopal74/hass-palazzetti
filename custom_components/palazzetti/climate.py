@@ -20,7 +20,7 @@ from homeassistant.components.climate.const import (
     SUPPORT_TARGET_TEMPERATURE_RANGE,
 )
 from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS, TEMP_FAHRENHEIT
-from .palazzetti_sdk_local_api import exceptions as palexcept
+from palazzetti_sdk_local_api import exceptions as palexcept
 import logging
 from .const import DOMAIN
 

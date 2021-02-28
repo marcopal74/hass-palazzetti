@@ -2,7 +2,7 @@
 import logging
 import voluptuous as vol
 from homeassistant import config_entries, exceptions
-from .palazzetti_sdk_local_api import Hub
+from palazzetti_sdk_local_api import Hub
 
 from .const import DOMAIN
 

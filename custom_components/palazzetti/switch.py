@@ -2,7 +2,7 @@
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.const import DEVICE_DEFAULT_NAME
 import logging
-from .palazzetti_sdk_local_api import exceptions as palexcept
+from palazzetti_sdk_local_api import exceptions as palexcept
 from .const import DOMAIN
 
 

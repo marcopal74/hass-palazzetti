@@ -137,13 +137,10 @@ class PalBinarySensor(BinarySensorEntity):
         if self._ishub:
             return self._hub.online
 
+        if self._product:
+            return self._product.online
+
         return self._hub.product_online
-
-        # Option "2": relays on product status and nor APLCONN key
-        # if self._product:
-        #     return self._product.online
-
-        # return False
 
     @property
     def device_state_attributes(self):
@@ -161,7 +158,7 @@ class PalBinarySensor(BinarySensorEntity):
             return _prod_attrib
 
         if self._product:
-            _prod_attrib = self._product.get_prod_data_json()
+            _prod_attrib = self._product.get_attributes()
             _prod_attrib.update({"icon": "mdi:link"})
             return _prod_attrib
 
@@ -170,16 +167,15 @@ class PalBinarySensor(BinarySensorEntity):
     async def async_added_to_hass(self):
         """Run when this Entity has been added to HA."""
         # Sensors should also register callbacks to HA when their state changes
-        if self._ishub:
-            self._hub.register_callback(self.async_write_ha_state)
+        self._hub.register_callback(self.async_write_ha_state)
         if self._product is not None:
+            self._hub.register_callback(self.async_write_ha_state)
             self._product.register_callback(self.async_write_ha_state)
 
     async def async_will_remove_from_hass(self):
         """Entity being removed from hass."""
         # The opposite of async_added_to_hass. Remove any registered call backs here.
-        if self._ishub:
-            self._hub.remove_callback(self.async_write_ha_state)
+        self._hub.remove_callback(self.async_write_ha_state)
         if self._product is not None:
             self._product.remove_callback(self.async_write_ha_state)
 

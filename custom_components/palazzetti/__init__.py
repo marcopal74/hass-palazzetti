@@ -17,7 +17,7 @@ from .const import DOMAIN, INTERVAL, INTERVAL_CNTR, INTERVAL_STDT, INTERVAL_KPAL
 from .input_number import create_input_number, unload_input_number
 from .helper import setup_platform
 import voluptuous as vol
-from .palazzetti_sdk_local_api import Hub
+from palazzetti_sdk_local_api import Hub
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,52 +53,53 @@ async def async_keep_alive(hass: HomeAssistant, entry: ConfigEntry):
     myhub = hass.data[DOMAIN][entry.entry_id]
     await myhub.async_update()
 
-    if myhub.hub_online and myhub.product_online:
-        print("IP now reachable and product is online")
-        await hass.config_entries.async_reload(entry.entry_id)
+    if myhub.hub_online:
+        if myhub.product_online:
+            print("IP now reachable and product is online")
+            await hass.config_entries.async_reload(entry.entry_id)
+        else:
+            print("IP now reachable but product offline")
     else:
         print("IP still not reachable")
 
 
 async def async_upd_alls(hass: HomeAssistant, entry: ConfigEntry):
     myhub = hass.data[DOMAIN][entry.entry_id]
+    # this update takes care to activate callbacks to update UI
+    # in case something goes offline
     await myhub.async_update()
 
-    if not myhub.hub_online:
-        return
-    else:
-        if myhub.product_online:
-            _api = myhub.product
+    if myhub.product_online:
+        _api = myhub.product
+        if _api:
             await _api.async_get_alls()
-        return
+    return
 
 
 async def async_upd_cntr(hass: HomeAssistant, entry: ConfigEntry):
     myhub = hass.data[DOMAIN][entry.entry_id]
+    # this update takes care to activate callbacks to update UI
+    # in case something goes offline
     await myhub.async_update()
 
-    if not myhub.hub_online:
-        return
-    else:
-        if myhub.product_online:
-            _api = myhub.product
+    if myhub.product_online:
+        _api = myhub.product
+        if _api:
             await _api.async_get_cntr()
-
-        return
+    return
 
 
 async def async_upd_stdt(hass: HomeAssistant, entry: ConfigEntry):
     myhub = hass.data[DOMAIN][entry.entry_id]
+    # this update takes care to activate callbacks to update UI
+    # in case something goes offline
     await myhub.async_update()
 
-    if not myhub.hub_online:
-        return
-    else:
-        if myhub.product_online:
-            _api = myhub.product
+    if myhub.product_online:
+        _api = myhub.product
+        if _api:
             await _api.async_get_stdt()
-
-        return
+    return
 
 
 async def async_create_platforms(hass: HomeAssistant, entry: ConfigEntry):
