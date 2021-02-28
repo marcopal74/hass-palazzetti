@@ -410,7 +410,7 @@ class Hub(object):
                 k: self.response_json[k] for k in HUB_KEYS if k in self.response_json
             }
             newList.update({"icon": self.response_json["icon"]})
-            newList_json = json.dumps(newList)
+            # newList_json = json.dumps(newList)
             return newList
         return
 

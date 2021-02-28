@@ -6,11 +6,12 @@ the integration menu and set the ip of the Connection Box when asked
 """
 import logging, asyncio
 from homeassistant.core import HomeAssistant
+from homeassistant import exceptions
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers import config_validation as cv, entity_registry
 from homeassistant.helpers.event import (
     async_track_time_interval,
 )
-from homeassistant.helpers import config_validation as cv
 from homeassistant.const import ATTR_ENTITY_ID
 from .const import DOMAIN, INTERVAL, INTERVAL_CNTR, INTERVAL_STDT, INTERVAL_KPAL
 from .input_number import create_input_number, unload_input_number
@@ -45,7 +46,7 @@ LISTENERS = [
     "_listener_kalive",
 ]
 
-SERVICES = ["set_setpoint", "set_silent"]
+SERVICES = ["set_setpoint"]
 
 
 async def async_keep_alive(hass: HomeAssistant, entry: ConfigEntry):
@@ -212,19 +213,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     print("Creating service")
 
     # service set_setpoint
-    myids = []
-    # mydata_domain = hass.data[DOMAIN]
-    # for product in mydata_domain:
-    #     if "listener" in product:
-    #         continue
-    #     apitest = hass.data[DOMAIN][product]
-    #     if apitest.get_data_config_json()["_flag_has_setpoint"]:
-    #         myids.append(DOMAIN + "." + apitest.product_id + "_stove")
-
     SET_SCHEMA = vol.Schema(
         {
-            vol.Required(ATTR_ENTITY_ID): vol.In(myids),
-            # vol.Optional(ATTR_ENTITY_ID): cv.entity_id,
+            # vol.Required(ATTR_ENTITY_ID): vol.In(myids),
+            vol.Optional(ATTR_ENTITY_ID): cv.entity_id,
             vol.Required("value"): cv.string,
         }
     )
@@ -234,53 +226,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
         # mydata = call
         _api = None
-        myentity = call.data["entity_id"][11:-6]
-        # myentity2 = base
-        mydata_domain = hass.data[DOMAIN]
+        registry = await entity_registry.async_get_registry(hass)
+        myentity_ok = registry.async_get(call.data["entity_id"])
+        if not myentity_ok or not myentity_ok.platform == DOMAIN:
+            raise CannotExecute
+        _api = hass.data[DOMAIN][myentity_ok.config_entry_id].product
         # mydata_entry = entry
-        for product in mydata_domain:
-            apitest = hass.data[DOMAIN][product]
-            if apitest.product_id == myentity:
-                _api = apitest
         if _api:
             myvalue = call.data["value"]
             await _api.async_set_setpoint(myvalue)
 
     hass.services.async_register(DOMAIN, "set_setpoint", set_setpoint, SET_SCHEMA)
-
-    # service set_silent
-    myids2 = []
-    # mydata_domain = hass.data[DOMAIN]
-    # for product in mydata_domain:
-    #     if "listener" in product:
-    #         continue
-    #     apitest = hass.data[DOMAIN][product]
-    #     if apitest.get_data_config_json()["_flag_has_fan_zero_speed_fan"]:
-    #         myids2.append(DOMAIN + "." + apitest.product_id + "_stove")
-
-    SET_SCHEMA = vol.Schema(
-        {
-            vol.Required(ATTR_ENTITY_ID): vol.In(myids2),
-        }
-    )
-
-    async def set_silent(call):
-        """Handle the service call 'set'"""
-
-        # mydata = call
-        _api = None
-        myentity = call.data["entity_id"][11:-6]
-        # myentity2 = base
-        mydata_domain = hass.data[DOMAIN]
-        # mydata_entry = entry
-        for product in mydata_domain:
-            apitest = hass.data[DOMAIN][product]
-            if apitest.product_id == myentity:
-                _api = apitest
-        if _api:
-            await _api.async_set_fan_silent_mode()
-
-    hass.services.async_register(DOMAIN, "set_silent", set_silent, SET_SCHEMA)
 
     # Return boolean to indicate that initialization was successfully.
     return True
@@ -309,9 +265,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     if entry.entry_id in hass.data[DOMAIN]:
         hass.data[DOMAIN].pop(entry.entry_id)
 
-    if DOMAIN in hass.services._services:
+    #  removes services only if no other hubs are connected
+    if not hass.data[DOMAIN] and DOMAIN in hass.services._services:
         for myservice in SERVICES:
             if myservice in hass.services._services[DOMAIN]:
                 hass.services.async_remove(DOMAIN, myservice)
 
     return True
+
+
+class CannotExecute(exceptions.HomeAssistantError):
+    """Error to indicate we cannot connect."""
