@@ -51,7 +51,7 @@ SERVICES = ["set_setpoint"]
 
 async def async_keep_alive(hass: HomeAssistant, entry: ConfigEntry):
     myhub = hass.data[DOMAIN][entry.entry_id]
-    await myhub.async_update()
+    await myhub.async_update(deep=False)
 
     if myhub.hub_online:
         if myhub.product_online:
@@ -67,7 +67,7 @@ async def async_upd_alls(hass: HomeAssistant, entry: ConfigEntry):
     myhub = hass.data[DOMAIN][entry.entry_id]
     # this update takes care to activate callbacks to update UI
     # in case something goes offline
-    await myhub.async_update()
+    await myhub.async_update(deep=False)
 
     if myhub.product_online:
         _api = myhub.product
@@ -80,7 +80,7 @@ async def async_upd_cntr(hass: HomeAssistant, entry: ConfigEntry):
     myhub = hass.data[DOMAIN][entry.entry_id]
     # this update takes care to activate callbacks to update UI
     # in case something goes offline
-    await myhub.async_update()
+    await myhub.async_update(deep=True)
 
     if myhub.product_online:
         _api = myhub.product
@@ -93,7 +93,7 @@ async def async_upd_stdt(hass: HomeAssistant, entry: ConfigEntry):
     myhub = hass.data[DOMAIN][entry.entry_id]
     # this update takes care to activate callbacks to update UI
     # in case something goes offline
-    await myhub.async_update()
+    await myhub.async_update(deep=True)
 
     if myhub.product_online:
         _api = myhub.product
